@@ -183,7 +183,7 @@ fn package_path(crate_name: &str, repo_name: &str, source_path: &str) -> PathBuf
     let sim_cli_repo = manifest_dir
         .parent()
         .and_then(Path::parent)
-        .expect("sim-cli package should live under crates/sim-cli");
+        .expect("sim-run package should live under crates/sim-run");
     if repo_name == "sim-cli" {
         return sim_cli_repo.join(source_path);
     }

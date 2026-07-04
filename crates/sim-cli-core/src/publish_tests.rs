@@ -4,7 +4,7 @@ use std::{fs, path::PathBuf};
 fn manifests_carry_publish_metadata_and_version_requirements() {
     let root = source_root();
     let workspace = read(&root, "Cargo.toml");
-    let binary = read(&root, "crates/sim-cli/Cargo.toml");
+    let binary = read(&root, "crates/sim-run/Cargo.toml");
     let core = read(&root, "crates/sim-cli-core/Cargo.toml");
 
     assert_contains(
@@ -54,7 +54,7 @@ fn committed_manifests_do_not_use_absolute_local_paths() {
     let root = source_root();
     for rel in [
         "Cargo.toml",
-        "crates/sim-cli/Cargo.toml",
+        "crates/sim-run/Cargo.toml",
         "crates/sim-cli-core/Cargo.toml",
         "xtask/Cargo.toml",
     ] {
