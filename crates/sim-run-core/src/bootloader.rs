@@ -1,13 +1,10 @@
-//! A reusable bootloader for a binary that ships one statically-linked library and
-//! boots it through the same [`LoadSession`] machinery the `sim` binary uses.
+//! A reusable bootloader for a binary that ships statically-linked libraries and
+//! boots them through the same [`LoadSession`] machinery the `sim` binary uses.
 //!
-//! Server binaries (MCP, web) used to hand-roll their own runtime
-//! (`Cx::new(...)` + codec/lib loads + a transport loop). That is divergent boot:
-//! a fix to the runtime bootstrap in one place never reaches the others. Instead,
-//! every product binary composes a [`Bootloader`], registers its serve library as a
+//! Every product binary composes a [`Bootloader`], registers its serve library as a
 //! host factory, and dispatches the library's `cli/main/<verb>` entrypoint -- the
-//! exact path `sim --load host:<lib> <verb>` follows. No binary constructs its own
-//! `Cx`.
+//! exact path `sim --load host:<lib> <verb>` follows. A binary owns the one canonical
+//! runtime bootstrap through this type and constructs no `Cx` of its own.
 //!
 //! The pattern mirrors the interactive REPL boot (`sim repl`): a host-registered
 //! library exports a `cli/main/<verb>` function whose [`Callable`] runs the (possibly

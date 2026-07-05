@@ -84,11 +84,11 @@ Options:
   --script PATH       Carry a script path for loaded-lib handoff.
   --stdin TEXT        Carry stdin text for loaded-lib handoff.
 
-Note: this is a pre-publish bootloader frame. It bakes in no codec. By
-default it fetches nothing over the network and boots only libraries provided
-via --load (an artifact source) or already present in the local cache. A build
-with the registry feature can fetch from an explicit git registry endpoint installed
-by the host. With no source it reports `no codec '<name>' available`.
+Note: the bootloader bakes in no codec. By default it fetches nothing over
+the network and boots only libraries provided via --load (an artifact source) or
+already present in the local cache. A build with the registry feature can fetch from
+an explicit git registry endpoint installed by the host. With no source it reports
+`no codec '<name>' available`.
 ";
 
 /// Command-line error returned by the bootloader core.
@@ -133,20 +133,20 @@ pub fn version_line() -> String {
 
 /// Runs the command entry API with process arguments.
 ///
-/// The default [`LoadSession`] is a pre-publish bootloader frame: it registers
-/// only the in-process host loader, so it boots no codec or library unless a
-/// loadable source is supplied via `--load` or already cached. A `Boot` command
-/// with no available codec returns `no codec '<name>' available`. To boot a real
-/// codec or library in-process, build a session with
-/// [`LoadSession::with_host_factory`]/[`LoadSession::with_loader`] and call
-/// [`run_with_session`].
+/// This is the one public boot path, expressed through [`Bootloader`]: the default
+/// `sim` runtime is `Bootloader::standard()` (the in-process host loader only), so it
+/// boots no codec or library unless a loadable source is supplied via `--load` or
+/// already cached. A `Boot` command with no available codec returns
+/// `no codec '<name>' available`. To boot a real codec or library in-process, compose
+/// a [`Bootloader`] with [`Bootloader::host_verb`]/[`Bootloader::host_lib`] (or build a
+/// session with [`LoadSession::with_host_factory`]/[`LoadSession::with_loader`] and
+/// call [`run_with_session`]).
 pub fn run<I, S>(args: I) -> Result<i32, CliError>
 where
     I: IntoIterator<Item = S>,
     S: Into<OsString>,
 {
-    let mut session = LoadSession::new();
-    run_with_session(args, &mut session)
+    Bootloader::standard().run(args)
 }
 
 /// Runs the command entry API with an injected loader session.
