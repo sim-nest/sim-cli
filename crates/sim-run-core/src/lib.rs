@@ -57,8 +57,8 @@ mod publish_tests;
 mod scenario_tests;
 
 pub use args::{CliCommand, parse_args};
-pub use bootloader::Bootloader;
 pub use boot::{CliBoot, CliEnvelope, Payload};
+pub use bootloader::Bootloader;
 pub use codec_boot::{DEFAULT_CODEC_NAME, boot_codec_name, codec_lib_symbol};
 pub use crates_io::{CratesIoResolver, CratesIoSpec, ResolvedCratesIoSource, VersionReq};
 #[cfg(feature = "registry")]
