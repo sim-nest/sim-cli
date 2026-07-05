@@ -1,11 +1,11 @@
 use std::io;
 use std::sync::Arc;
 
-use sim_run_core::cli_main_entrypoint_symbol;
 use sim_kernel::{
     AbiVersion, Args, Callable, Cx, Error, Export, Expr, Lib, LibManifest, LibTarget, Linker,
     LoadCx, Object, ObjectCompat, Result, Symbol, Value, Version,
 };
+use sim_run_core::cli_main_entrypoint_symbol;
 
 use crate::run_repl_lines;
 
