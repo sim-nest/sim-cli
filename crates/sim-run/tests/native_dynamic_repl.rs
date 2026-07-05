@@ -184,12 +184,12 @@ fn package_path(crate_name: &str, repo_name: &str, source_path: &str) -> PathBuf
         .parent()
         .and_then(Path::parent)
         .expect("sim-run package should live under crates/sim-run");
-    if repo_name == "sim-cli" {
+    if repo_name == "sim-run" {
         return sim_cli_repo.join(source_path);
     }
     sim_cli_repo
         .parent()
-        .expect("sim-cli checkout should have sibling repos")
+        .expect("sim-run checkout should have sibling repos")
         .join(repo_name)
         .join(source_path)
 }

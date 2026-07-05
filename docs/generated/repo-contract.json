@@ -1,6 +1,6 @@
 {
   "schema": "sim.repo-contract.v1",
-  "repo": "sim-cli",
+  "repo": "sim-run",
   "lanes": [
     "target/doc/",
     "docs/agents/cards.jsonl",

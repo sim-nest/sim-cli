@@ -15,8 +15,8 @@ members = [
 [workspace.package]
 edition = "2024"
 license = "MPL-2.0"
-repository = "https://github.com/sim-nest/sim-cli"
-homepage = "https://github.com/sim-nest/sim-cli"
+repository = "https://github.com/sim-nest/sim-run"
+homepage = "https://github.com/sim-nest/sim-run"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

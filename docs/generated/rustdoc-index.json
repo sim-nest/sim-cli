@@ -1,5 +1,5 @@
 {
   "schema": "sim.rustdoc-index.v1",
-  "repo": "sim-cli",
+  "repo": "sim-run",
   "target_doc": "target/doc/"
 }

@@ -441,13 +441,13 @@ fn source_root() -> PathBuf {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     for candidate in [
         manifest_dir.join("../.."),
-        manifest_dir.join("../../../../sim-cli"),
+        manifest_dir.join("../../../../sim-run"),
     ] {
         if candidate.join("recipes/book.toml").exists() {
             return candidate;
         }
     }
-    panic!("could not locate sim-cli source root from {manifest_dir:?}");
+    panic!("could not locate sim-run source root from {manifest_dir:?}");
 }
 
 fn scenario_session() -> LoadSession {

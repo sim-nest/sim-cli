@@ -1,3 +1,3 @@
 # Diagram Sources
 
-Place editable diagram sources for `sim-cli` here.
+Place editable diagram sources for `sim-run` here.

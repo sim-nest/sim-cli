@@ -1,6 +1,6 @@
-# sim-cli
+# sim-run
 
-`sim-cli` provides the `sim` binary. The binary delegates command handling to
+`sim-run` provides the `sim` binary. The binary delegates command handling to
 `sim-run-core` and keeps its entrypoint thin.
 
 This is a pre-publish bootloader frame: it bakes in no codec. By default it

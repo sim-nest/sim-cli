@@ -1,4 +1,4 @@
-# sim-cli
+# sim-run
 
 In one line: the terminal way in -- one `sim` command that starts a session, loads plug-ins, and answers you at a live prompt.
 

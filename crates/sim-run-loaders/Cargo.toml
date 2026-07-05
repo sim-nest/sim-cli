@@ -6,8 +6,8 @@ license.workspace = true
 description = "Feature-composable SIM bootloader loaders."
 readme = "README.md"
 publish = true
-repository = "https://github.com/sim-nest/sim-cli"
-homepage = "https://github.com/sim-nest/sim-cli"
+repository = "https://github.com/sim-nest/sim-run"
+homepage = "https://github.com/sim-nest/sim-run"
 
 [features]
 default = []

@@ -1,10 +1,10 @@
-# sim-cli
+# sim-run
 
-sim-cli is the command-line bootloader repository for SIM.
+sim-run is the command-line bootloader repository for SIM.
 
 ## Crates
 
-- `sim-cli` provides the `sim` binary.
+- `sim-run` provides the `sim` binary.
 - `sim-run-core` provides the command entry API used by the binary.
 - `sim-lib-repl` provides the loadable `cli/main/repl` entry point and the
   read-eval-print core used by that entry point.

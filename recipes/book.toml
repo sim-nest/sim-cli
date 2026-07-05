@@ -1,5 +1,5 @@
-book = "sim-cli"
-title = "sim-cli"
+book = "sim-run"
+title = "sim-run"
 summary = "SIM command-line bootloader recipes."
 order = 10
 chapters = ["01-basics", "02-scenarios", "publish-readiness"]

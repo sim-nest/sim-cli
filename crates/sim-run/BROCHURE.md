@@ -1,4 +1,4 @@
-# sim-cli
+# sim-run
 
 In one line: The `sim` program you launch from a terminal to start a SIM session.
 

@@ -6,8 +6,8 @@ license.workspace = true
 description = "Core command entry API for the SIM bootloader."
 readme = "README.md"
 publish = true
-repository = "https://github.com/sim-nest/sim-cli"
-homepage = "https://github.com/sim-nest/sim-cli"
+repository = "https://github.com/sim-nest/sim-run"
+homepage = "https://github.com/sim-nest/sim-run"
 
 [dependencies]
 sim-kernel = { version = "0.1.0" }

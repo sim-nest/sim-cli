@@ -100,7 +100,7 @@ fn unique_wasm_path() -> PathBuf {
         .expect("system time should be after unix epoch")
         .as_nanos();
     std::env::temp_dir().join(format!(
-        "sim-cli-wasm-fixture-{}-{nanos}.wasm",
+        "sim-run-wasm-fixture-{}-{nanos}.wasm",
         std::process::id()
     ))
 }

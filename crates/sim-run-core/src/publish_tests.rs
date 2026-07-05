@@ -15,12 +15,12 @@ fn manifests_carry_publish_metadata_and_version_requirements() {
     assert_contains(&workspace, "license = \"MPL-2.0\"", "workspace license");
     assert_contains(
         &workspace,
-        "repository = \"https://github.com/sim-nest/sim-cli\"",
+        "repository = \"https://github.com/sim-nest/sim-run\"",
         "workspace repository",
     );
     assert_contains(
         &workspace,
-        "homepage = \"https://github.com/sim-nest/sim-cli\"",
+        "homepage = \"https://github.com/sim-nest/sim-run\"",
         "workspace homepage",
     );
 
@@ -144,12 +144,12 @@ fn assert_package_metadata(manifest: &str, package: &str, description: &str, pub
     assert_contains(manifest, &format!("publish = {publish}"), package);
     assert_contains(
         manifest,
-        "repository = \"https://github.com/sim-nest/sim-cli\"",
+        "repository = \"https://github.com/sim-nest/sim-run\"",
         package,
     );
     assert_contains(
         manifest,
-        "homepage = \"https://github.com/sim-nest/sim-cli\"",
+        "homepage = \"https://github.com/sim-nest/sim-run\"",
         package,
     );
 }
@@ -173,11 +173,11 @@ fn source_root() -> PathBuf {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     for candidate in [
         manifest_dir.join("../.."),
-        manifest_dir.join("../../../../sim-cli"),
+        manifest_dir.join("../../../../sim-run"),
     ] {
         if candidate.join("recipes/book.toml").exists() {
             return candidate;
         }
     }
-    panic!("could not locate sim-cli source root from {manifest_dir:?}");
+    panic!("could not locate sim-run source root from {manifest_dir:?}");
 }
