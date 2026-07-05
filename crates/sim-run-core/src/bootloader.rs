@@ -74,6 +74,19 @@ impl Bootloader {
         }
     }
 
+    /// Registers a statically-linked library under `name` WITHOUT binding it to a
+    /// verb -- for a supporting library the served verb needs, most commonly the boot
+    /// codec (register it under `codec/<name>` and pass `--codec <name>` so the boot
+    /// resolves the host codec instead of the default).
+    pub fn host_lib<F>(self, name: &str, factory: F) -> Self
+    where
+        F: Fn() -> Box<dyn Lib> + Send + Sync + 'static,
+    {
+        Self {
+            session: self.session.with_host_factory(name.to_owned(), factory),
+        }
+    }
+
     /// Grants a capability the served library requires (for example a transport or
     /// tool-call capability).
     pub fn with_capability(self, capability: CapabilityName) -> Self {
