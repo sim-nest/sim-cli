@@ -2,7 +2,7 @@
 #![deny(missing_docs)]
 //! Core command entry API for the SIM bootloader.
 //!
-//! # Pre-publish bootloader frame
+//! # Bootloader frame
 //!
 //! The shipped `sim` binary is a **bootloader frame, not a batteries-included
 //! runtime**. [`run`] builds a [`LoadSession`] whose only registered loader is

@@ -18,8 +18,10 @@
 //! diagnostics overlay (see [`sim_lib_view::palette`]) renders its children
 //! through the same path.
 
+use crate::caps::cli_caps;
 use sim_kernel::Expr;
 use sim_lib_view::SurfaceCaps;
+use sim_lib_view::palette::{Command, palette_scene};
 
 /// Renders `scene` to deterministic terminal text for the surface `caps`.
 ///
@@ -148,4 +150,16 @@ fn atom_text(value: &Expr) -> String {
             .join(" "),
         other => format!("<{}>", sim_value::kind::expr_kind(other)),
     }
+}
+
+/// Renders the shared command palette overlay to deterministic terminal text.
+///
+/// Builds the surface-neutral [`palette_scene`] for `commands` filtered by
+/// `filter`, then walks it through the same
+/// [`render_scene`] path used for every other scene, so the palette is just
+/// another overlay on the terminal. Output is ASCII and deterministic: equal
+/// inputs yield an equal `String`.
+pub fn render_palette(commands: &[Command], filter: &str) -> String {
+    let scene = palette_scene(commands, filter);
+    render_scene(&scene, &cli_caps("tty.palette"))
 }
