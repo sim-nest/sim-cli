@@ -13,7 +13,7 @@ sim --version
 sim repl                  # a live prompt: type (math/add 6 7) -> 13
 ```
 
-`sim webui` opens the browser UI and `sim serve mcp` starts a Model Context
+`sim webui` opens the browser UI and `sim mcp` starts a Model Context
 Protocol server; the full walkthrough (what each surface shows, local
 fallbacks) is in [sim-say](https://github.com/sim-nest/sim-say). The exact
 command grammar is under [Reference: the command surface](#reference-the-command-surface).
