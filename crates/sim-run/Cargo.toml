@@ -1,6 +1,6 @@
 [package]
 name = "sim-run"
-version = "0.1.1"
+version = "0.1.2"
 edition.workspace = true
 license.workspace = true
 description = "SIM bootloader command line."
@@ -10,7 +10,7 @@ repository = "https://github.com/sim-nest/sim-run"
 homepage = "https://github.com/sim-nest/sim-run"
 
 [[bin]]
-name = "sim"
+name = "sim-run"
 path = "src/main.rs"
 
 [features]
