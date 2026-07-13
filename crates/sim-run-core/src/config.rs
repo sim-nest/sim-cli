@@ -8,10 +8,12 @@ use std::{
 
 use sim_codec_config::ConfigDecoder;
 use sim_config::{
-    ConfigDir, ConfigLayer, ConfigRoots, ConfigSource, ConfigTable, EffectiveConfig,
-    lib_config_path, lib_symbol_from_str, merge_layers,
+    ConfigDir, ConfigLayer, ConfigRoots, ConfigSecretField, ConfigSource, ConfigTable,
+    EffectiveConfig, lib_config_path, lib_symbol_from_str, merge_layers,
 };
 use sim_kernel::{Cx, Symbol};
+
+use crate::report::{ConfigSourceReport, SourceStatus};
 
 /// Source-selection options for runtime configuration discovery.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -50,6 +52,9 @@ impl Default for ConfigLoadOptions {
 pub struct RuntimeConfigState {
     layers: Vec<ConfigLayer>,
     effective: EffectiveConfig,
+    source_reports: Vec<ConfigSourceReport>,
+    secret_fields: Vec<ConfigSecretField>,
+    probe_report_lines: Vec<String>,
     diagnostics: Vec<String>,
 }
 
@@ -64,6 +69,21 @@ impl RuntimeConfigState {
         &self.effective
     }
 
+    /// Returns source status records in discovery order.
+    pub fn source_reports(&self) -> &[ConfigSourceReport] {
+        &self.source_reports
+    }
+
+    /// Returns config fields that must be redacted in reports.
+    pub fn secret_fields(&self) -> &[ConfigSecretField] {
+        &self.secret_fields
+    }
+
+    /// Returns display-only probe report lines until typed probe reports land.
+    pub fn probe_report_lines(&self) -> &[String] {
+        &self.probe_report_lines
+    }
+
     /// Returns non-fatal discovery diagnostics.
     pub fn diagnostics(&self) -> &[String] {
         &self.diagnostics
@@ -71,8 +91,29 @@ impl RuntimeConfigState {
 
     /// Adds a layer and recomputes the effective config.
     pub fn push_layer(&mut self, layer: ConfigLayer) {
+        self.push_source_report(layer.source.clone(), SourceStatus::Found);
         self.layers.push(layer);
         self.effective = merge_layers(&self.layers);
+    }
+
+    /// Adds or replaces shape-derived secret field metadata.
+    pub fn extend_secret_fields(&mut self, fields: impl IntoIterator<Item = ConfigSecretField>) {
+        for field in fields {
+            if !self.secret_fields.contains(&field) {
+                self.secret_fields.push(field);
+            }
+        }
+    }
+
+    /// Adds a display-only probe report line.
+    pub fn push_probe_report_line(&mut self, line: impl Into<String>) {
+        self.probe_report_lines.push(line.into());
+    }
+
+    /// Adds a source status record.
+    pub fn push_source_report(&mut self, source: ConfigSource, status: SourceStatus) {
+        self.source_reports
+            .push(ConfigSourceReport { source, status });
     }
 
     fn push_diagnostic(&mut self, diagnostic: String) {
@@ -147,28 +188,37 @@ fn read_per_lib_file(state: &mut RuntimeConfigState, root: &Path, kind: RootKind
         }
     };
     let path = root.join(relative);
-    if !path.exists() {
-        return;
-    }
     let source = match kind {
         RootKind::Home => ConfigSource::HomeFile { path: path.clone() },
         RootKind::Work => ConfigSource::WorkFile { path: path.clone() },
     };
+    if !path.exists() {
+        state.push_source_report(source, SourceStatus::Missing);
+        return;
+    }
     let table = match decode_table_file(&path) {
         Ok(table) => table,
         Err(err) => {
+            state.push_source_report(source, SourceStatus::Rejected);
             state.push_diagnostic(err);
             return;
         }
     };
     match ConfigDir::one(lib.clone(), table) {
         Ok(dir) => state.push_layer(ConfigLayer::new(source, dir)),
-        Err(err) => state.push_diagnostic(format!("read config {}: {err}", path.display())),
+        Err(err) => {
+            state.push_source_report(source, SourceStatus::Rejected);
+            state.push_diagnostic(format!("read config {}: {err}", path.display()));
+        }
     }
 }
 
 fn read_single_file(state: &mut RuntimeConfigState, path: &Path, explicit: bool) {
+    let source = ConfigSource::SingleFile {
+        path: path.to_path_buf(),
+    };
     if !path.exists() {
+        state.push_source_report(source, SourceStatus::Missing);
         if explicit {
             state.push_diagnostic(format!("config file not found: {}", path.display()));
         }
@@ -177,36 +227,35 @@ fn read_single_file(state: &mut RuntimeConfigState, path: &Path, explicit: bool)
     let dir = match decode_dir_file(path) {
         Ok(dir) => dir,
         Err(err) => {
+            state.push_source_report(source, SourceStatus::Rejected);
             state.push_diagnostic(err);
             return;
         }
     };
-    state.push_layer(ConfigLayer::new(
-        ConfigSource::SingleFile {
-            path: path.to_path_buf(),
-        },
-        dir,
-    ));
+    state.push_layer(ConfigLayer::new(source, dir));
 }
 
 fn read_site_dir(cx: &mut Cx, state: &mut RuntimeConfigState, site: &Symbol) {
+    let source = ConfigSource::Site { site: site.clone() };
     let Some(value) = cx.registry().site_by_symbol(site).cloned() else {
+        state.push_source_report(source, SourceStatus::Missing);
         state.push_diagnostic(format!("config site not found: {site}"));
         return;
     };
     let expr = match value.object().as_expr(cx) {
         Ok(expr) => expr,
         Err(err) => {
+            state.push_source_report(source, SourceStatus::Rejected);
             state.push_diagnostic(format!("read config site {site}: {err}"));
             return;
         }
     };
     match ConfigDir::from_dir_expr(&expr).and_then(normalize_dir) {
-        Ok(dir) => state.push_layer(ConfigLayer::new(
-            ConfigSource::Site { site: site.clone() },
-            dir,
-        )),
-        Err(err) => state.push_diagnostic(format!("read config site {site}: {err}")),
+        Ok(dir) => state.push_layer(ConfigLayer::new(source, dir)),
+        Err(err) => {
+            state.push_source_report(source, SourceStatus::Rejected);
+            state.push_diagnostic(format!("read config site {site}: {err}"));
+        }
     }
 }
 

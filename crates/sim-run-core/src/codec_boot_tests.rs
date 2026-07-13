@@ -252,6 +252,7 @@ fn explicit_host_codec_loads_before_other_sources() {
         config: crate::ConfigLoadOptions::default(),
         list: false,
         inspect: None,
+        config_report: None,
         payload: Payload::default(),
     };
     let mut session = LoadSession::new()

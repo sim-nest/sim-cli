@@ -360,6 +360,7 @@ fn entrypoint_receives_cli_envelope_value() {
         config: crate::ConfigLoadOptions::default(),
         list: false,
         inspect: None,
+        config_report: None,
         payload: Payload {
             args: vec![
                 OsString::from("run"),

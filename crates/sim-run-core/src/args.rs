@@ -1,6 +1,9 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use crate::{CliBoot, CliError, LibSourceSpec, source::symbol_from_text};
+use crate::{
+    CliBoot, CliError, ConfigReportKind, ConfigReportRequest, LibSourceSpec,
+    source::symbol_from_text,
+};
 
 /// Top-level command selected by the bootloader parser.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -183,6 +186,10 @@ where
                 cursor += 1;
             }
             _ if !arg.starts_with('-') => {
+                if arg == "config" {
+                    boot.config_report = Some(parse_config_report(&args[cursor + 1..])?);
+                    break;
+                }
                 boot.payload.args.extend(args.drain(cursor..));
                 break;
             }
@@ -234,6 +241,44 @@ fn reject_seen(seen: &mut bool, flag: &str) -> Result<(), CliError> {
         *seen = true;
         Ok(())
     }
+}
+
+fn parse_config_report(args: &[OsString]) -> Result<ConfigReportRequest, CliError> {
+    let mut json = false;
+    let mut positionals = Vec::new();
+    for arg in args {
+        let arg = arg_string(arg);
+        match arg.as_str() {
+            "--json" => {
+                if json {
+                    return Err(CliError::duplicate("--json"));
+                }
+                json = true;
+            }
+            "--" => return Err(CliError::unsupported("--")),
+            _ if arg.starts_with('-') => return Err(CliError::unsupported(&arg)),
+            _ => positionals.push(arg),
+        }
+    }
+    let Some(command) = positionals.first().map(String::as_str) else {
+        return Err(CliError::new(
+            "config requires one of: status, effective, sources",
+        ));
+    };
+    let kind = match command {
+        "status" if positionals.len() == 1 => ConfigReportKind::Status,
+        "sources" if positionals.len() == 1 => ConfigReportKind::Sources,
+        "effective" if positionals.len() == 2 => ConfigReportKind::Effective {
+            lib: symbol_from_text(&positionals[1]),
+        },
+        "effective" => {
+            return Err(CliError::new(
+                "config effective requires exactly one library id",
+            ));
+        }
+        _ => return Err(CliError::unsupported(&format!("config {command}"))),
+    };
+    Ok(ConfigReportRequest { kind, json })
 }
 
 fn arg_string(arg: &OsString) -> String {
@@ -354,6 +399,47 @@ mod tests {
     }
 
     #[test]
+    fn parses_config_report_commands() {
+        let parsed = parse_args(["sim", "--config-file=sim.toml", "config", "status"]).unwrap();
+        let CliCommand::Boot(boot) = parsed else {
+            panic!("expected boot command");
+        };
+        assert_eq!(
+            boot.config_report,
+            Some(ConfigReportRequest {
+                kind: ConfigReportKind::Status,
+                json: false,
+            })
+        );
+
+        let parsed = parse_args(["sim", "config", "effective", "sim/cookbook", "--json"]).unwrap();
+        let CliCommand::Boot(boot) = parsed else {
+            panic!("expected boot command");
+        };
+        assert_eq!(
+            boot.config_report,
+            Some(ConfigReportRequest {
+                kind: ConfigReportKind::Effective {
+                    lib: sim_kernel::Symbol::qualified("sim", "cookbook"),
+                },
+                json: true,
+            })
+        );
+
+        let parsed = parse_args(["sim", "config", "sources", "--json"]).unwrap();
+        let CliCommand::Boot(boot) = parsed else {
+            panic!("expected boot command");
+        };
+        assert_eq!(
+            boot.config_report,
+            Some(ConfigReportRequest {
+                kind: ConfigReportKind::Sources,
+                json: true,
+            })
+        );
+    }
+
+    #[test]
     fn rejects_missing_duplicate_and_unknown_flags() {
         assert_eq!(
             parse_args(["sim", "--codec"]).unwrap_err().to_string(),
@@ -380,6 +466,16 @@ mod tests {
                 .unwrap_err()
                 .to_string(),
             "--config-work was provided more than once"
+        );
+        assert_eq!(
+            parse_args(["sim", "config"]).unwrap_err().to_string(),
+            "config requires one of: status, effective, sources"
+        );
+        assert_eq!(
+            parse_args(["sim", "config", "effective"])
+                .unwrap_err()
+                .to_string(),
+            "config effective requires exactly one library id"
         );
     }
 }
