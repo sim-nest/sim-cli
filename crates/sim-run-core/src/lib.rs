@@ -32,6 +32,7 @@ mod args;
 mod boot;
 mod bootloader;
 mod codec_boot;
+mod config;
 mod crates_io;
 mod envelope;
 mod exit;
@@ -41,10 +42,15 @@ mod handoff;
 mod introspect;
 mod load;
 mod receipt;
+mod report;
 mod source;
 
 #[cfg(test)]
 mod codec_boot_tests;
+#[cfg(test)]
+mod config_report_tests;
+#[cfg(test)]
+mod config_tests;
 #[cfg(test)]
 mod handoff_tests;
 #[cfg(test)]
@@ -60,12 +66,22 @@ pub use args::{CliCommand, parse_args};
 pub use boot::{CliBoot, CliEnvelope, Payload};
 pub use bootloader::Bootloader;
 pub use codec_boot::{DEFAULT_CODEC_NAME, boot_codec_name, codec_lib_symbol};
+pub use config::{
+    ConfigLoadOptions, RuntimeConfigState, load_config_sources, load_config_sources_with_probes,
+    run_config_probe,
+};
 pub use crates_io::{CratesIoResolver, CratesIoSpec, ResolvedCratesIoSource, VersionReq};
 #[cfg(feature = "registry")]
 pub use git_registry::{GIT_REGISTRY_ENDPOINT_ENV, GitRegistryResolver};
 pub use handoff::{CLI_MAIN_ENTRYPOINT, CliEntrypoint, cli_main_entrypoint_symbol};
 pub use load::LoadSession;
 pub use receipt::{LoadReceipt, LoadReceiptRole};
+pub use report::{
+    ConfigReportKind, ConfigReportRequest, ConfigSourceReport, LoadedLibReport, LoadedStateReport,
+    SourceStatus, format_config_sources, format_config_sources_json, format_config_status,
+    format_config_status_json, format_effective_config, format_effective_config_json,
+    render_config_report,
+};
 pub use source::LibSourceSpec;
 
 const HELP: &str = "\
@@ -78,8 +94,19 @@ Options:
   --load SRC          Add a library source to load.
   --native-audio-provider SRC
                       Try a native audio provider source and degrade if absent.
+  --config-home PATH  Read home config from PATH.
+  --config-work PATH  Read working config from PATH.
+  --config-file PATH  Read one shared config Dir file after root files.
+  --config-site SYMBOL
+                      Read a config Dir from a loaded site export.
+  --no-config-files   Skip filesystem config discovery.
   --list              Request a loaded-lib list.
   --inspect SYMBOL    Request inspection of a loaded lib or export.
+  config status       Report loaded libs, config sources, probes, and diagnostics.
+  config effective LIB
+                      Report the effective config table for LIB.
+  config sources      Report config source provenance and diagnostics.
+  --json              Render a config report command as stable JSON.
   --eval TEXT         Carry eval text for loaded-lib handoff.
   --script PATH       Carry a script path for loaded-lib handoff.
   --stdin TEXT        Carry stdin text for loaded-lib handoff.

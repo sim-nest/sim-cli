@@ -204,8 +204,10 @@ fn list_output_includes_catalog_loaded_receipts_and_crates_artifacts() {
             LibSourceSpec::CratesIo("sim-lib-crate@0.1.0".parse().unwrap()),
         ],
         native_audio_provider: None,
+        config: crate::ConfigLoadOptions::default(),
         list: true,
         inspect: None,
+        config_report: None,
         payload: Payload::default(),
     };
     let mut session = session()
@@ -244,8 +246,10 @@ fn inspect_loaded_lib_and_export_uses_open_export_records() {
         codec: Some("test".to_owned()),
         loads: vec![LibSourceSpec::Host("host/demo".to_owned())],
         native_audio_provider: None,
+        config: crate::ConfigLoadOptions::default(),
         list: false,
         inspect: Some("host-demo".to_owned()),
+        config_report: None,
         payload: Payload::default(),
     };
     let mut lib_session = session().with_host_factory("host/demo", || {
@@ -334,8 +338,10 @@ fn loaded_delegate_can_own_list_and_inspect_output() {
             LibSourceSpec::Host("delegate/inspect".to_owned()),
         ],
         native_audio_provider: None,
+        config: crate::ConfigLoadOptions::default(),
         list: true,
         inspect: Some("demo".to_owned()),
+        config_report: None,
         payload: Payload::default(),
     };
     let mut session = session()

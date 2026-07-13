@@ -1,6 +1,8 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use crate::{LibSourceSpec, boot_codec_name, codec_lib_symbol};
+use crate::{
+    ConfigLoadOptions, ConfigReportRequest, LibSourceSpec, boot_codec_name, codec_lib_symbol,
+};
 
 /// Parsed bootloader controls and payload data.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -11,10 +13,14 @@ pub struct CliBoot {
     pub loads: Vec<LibSourceSpec>,
     /// Optional native audio provider source requested by the operator.
     pub native_audio_provider: Option<Box<LibSourceSpec>>,
+    /// Runtime configuration source options.
+    pub config: ConfigLoadOptions,
     /// Whether `--list` requested a loaded-lib listing.
     pub list: bool,
     /// Symbol passed to `--inspect`, if any.
     pub inspect: Option<String>,
+    /// Loaded-state or effective-config report requested by `sim config ...`.
+    pub config_report: Option<ConfigReportRequest>,
     /// Payload data preserved for the loaded-lib handoff.
     pub payload: Payload,
 }

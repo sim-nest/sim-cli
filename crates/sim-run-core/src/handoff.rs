@@ -20,6 +20,10 @@ pub struct CliEntrypoint {
 impl LoadSession {
     /// Loads a boot session and runs the selected loaded CLI entrypoint.
     pub fn run_loaded_boot(&mut self, boot: &CliBoot) -> Result<i32, CliError> {
+        if boot.config_report.is_some() {
+            print!("{}", self.run_config_report(boot)?);
+            return Ok(0);
+        }
         if boot.list || boot.inspect.is_some() {
             print!("{}", self.run_loaded_introspection(boot)?);
             return Ok(0);

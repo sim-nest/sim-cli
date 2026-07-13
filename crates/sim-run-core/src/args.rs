@@ -1,6 +1,9 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use crate::{CliBoot, CliError, LibSourceSpec};
+use crate::{
+    CliBoot, CliError, ConfigReportKind, ConfigReportRequest, LibSourceSpec,
+    source::symbol_from_text,
+};
 
 /// Top-level command selected by the bootloader parser.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -10,7 +13,7 @@ pub enum CliCommand {
     /// Print the binary version and exit.
     Version,
     /// Load libraries and hand off to a loaded entrypoint.
-    Boot(CliBoot),
+    Boot(Box<CliBoot>),
 }
 
 /// Parses the minimal bootloader flags.
@@ -44,6 +47,7 @@ where
     }
 
     let mut boot = CliBoot::default();
+    let mut seen = ConfigFlagsSeen::default();
     let mut cursor = 0;
     while cursor < args.len() {
         let arg = arg_string(&args[cursor]);
@@ -72,6 +76,30 @@ where
                     "--native-audio-provider",
                     Box::new(source.parse::<LibSourceSpec>()?),
                 )?;
+            }
+            "--config-home" => {
+                reject_seen(&mut seen.home, "--config-home")?;
+                boot.config.roots.home = Some(PathBuf::from(take_value(&args, &mut cursor)?));
+            }
+            "--config-work" => {
+                reject_seen(&mut seen.work, "--config-work")?;
+                boot.config.roots.work = PathBuf::from(take_value(&args, &mut cursor)?);
+            }
+            "--config-file" => {
+                boot.config.single_file = set_once(
+                    boot.config.single_file,
+                    "--config-file",
+                    PathBuf::from(take_value(&args, &mut cursor)?),
+                )?;
+            }
+            "--config-site" => {
+                let site = symbol_from_text(&take_value(&args, &mut cursor)?);
+                boot.config.site_sources.push(site);
+            }
+            "--no-config-files" => {
+                reject_seen(&mut seen.no_files, "--no-config-files")?;
+                boot.config.read_files = false;
+                cursor += 1;
             }
             "--inspect" => {
                 boot.inspect =
@@ -111,6 +139,29 @@ where
                 )?;
                 cursor += 1;
             }
+            _ if arg.starts_with("--config-home=") => {
+                reject_seen(&mut seen.home, "--config-home")?;
+                boot.config.roots.home = Some(PathBuf::from(inline_value(&arg, "--config-home=")?));
+                cursor += 1;
+            }
+            _ if arg.starts_with("--config-work=") => {
+                reject_seen(&mut seen.work, "--config-work")?;
+                boot.config.roots.work = PathBuf::from(inline_value(&arg, "--config-work=")?);
+                cursor += 1;
+            }
+            _ if arg.starts_with("--config-file=") => {
+                boot.config.single_file = set_once(
+                    boot.config.single_file,
+                    "--config-file",
+                    PathBuf::from(inline_value(&arg, "--config-file=")?),
+                )?;
+                cursor += 1;
+            }
+            _ if arg.starts_with("--config-site=") => {
+                let site = symbol_from_text(&inline_value(&arg, "--config-site=")?);
+                boot.config.site_sources.push(site);
+                cursor += 1;
+            }
             _ if arg.starts_with("--inspect=") => {
                 boot.inspect =
                     set_once(boot.inspect, "--inspect", inline_value(&arg, "--inspect=")?)?;
@@ -135,6 +186,10 @@ where
                 cursor += 1;
             }
             _ if !arg.starts_with('-') => {
+                if arg == "config" {
+                    boot.config_report = Some(parse_config_report(&args[cursor + 1..])?);
+                    break;
+                }
                 boot.payload.args.extend(args.drain(cursor..));
                 break;
             }
@@ -143,7 +198,7 @@ where
         }
     }
 
-    Ok(CliCommand::Boot(boot))
+    Ok(CliCommand::Boot(Box::new(boot)))
 }
 
 fn take_value(args: &[OsString], cursor: &mut usize) -> Result<String, CliError> {
@@ -172,6 +227,60 @@ fn set_once<T>(slot: Option<T>, flag: &str, value: T) -> Result<Option<T>, CliEr
     }
 }
 
+#[derive(Default)]
+struct ConfigFlagsSeen {
+    home: bool,
+    work: bool,
+    no_files: bool,
+}
+
+fn reject_seen(seen: &mut bool, flag: &str) -> Result<(), CliError> {
+    if *seen {
+        Err(CliError::duplicate(flag))
+    } else {
+        *seen = true;
+        Ok(())
+    }
+}
+
+fn parse_config_report(args: &[OsString]) -> Result<ConfigReportRequest, CliError> {
+    let mut json = false;
+    let mut positionals = Vec::new();
+    for arg in args {
+        let arg = arg_string(arg);
+        match arg.as_str() {
+            "--json" => {
+                if json {
+                    return Err(CliError::duplicate("--json"));
+                }
+                json = true;
+            }
+            "--" => return Err(CliError::unsupported("--")),
+            _ if arg.starts_with('-') => return Err(CliError::unsupported(&arg)),
+            _ => positionals.push(arg),
+        }
+    }
+    let Some(command) = positionals.first().map(String::as_str) else {
+        return Err(CliError::new(
+            "config requires one of: status, effective, sources",
+        ));
+    };
+    let kind = match command {
+        "status" if positionals.len() == 1 => ConfigReportKind::Status,
+        "sources" if positionals.len() == 1 => ConfigReportKind::Sources,
+        "effective" if positionals.len() == 2 => ConfigReportKind::Effective {
+            lib: symbol_from_text(&positionals[1]),
+        },
+        "effective" => {
+            return Err(CliError::new(
+                "config effective requires exactly one library id",
+            ));
+        }
+        _ => return Err(CliError::unsupported(&format!("config {command}"))),
+    };
+    Ok(ConfigReportRequest { kind, json })
+}
+
 fn arg_string(arg: &OsString) -> String {
     arg.to_string_lossy().into_owned()
 }
@@ -191,6 +300,12 @@ mod tests {
             "symbol:codec/json",
             "--load=path:./lib.wasm",
             "--native-audio-provider=symbol:audio/provider/jack",
+            "--config-home",
+            "/tmp/sim-home",
+            "--config-work=/tmp/sim-work",
+            "--config-file",
+            "/tmp/sim.toml",
+            "--config-site=config/runtime",
             "--list",
             "--inspect",
             "codec/json",
@@ -216,6 +331,16 @@ mod tests {
         assert_eq!(
             boot.native_audio_provider.as_deref(),
             Some(&LibSourceSpec::Symbol("audio/provider/jack".to_owned()))
+        );
+        assert_eq!(boot.config.roots.home, Some(PathBuf::from("/tmp/sim-home")));
+        assert_eq!(boot.config.roots.work, PathBuf::from("/tmp/sim-work"));
+        assert_eq!(
+            boot.config.single_file,
+            Some(PathBuf::from("/tmp/sim.toml"))
+        );
+        assert_eq!(
+            boot.config.site_sources,
+            vec![sim_kernel::Symbol::qualified("config", "runtime")]
         );
         assert!(boot.list);
         assert_eq!(boot.inspect, Some("codec/json".to_owned()));
@@ -274,6 +399,47 @@ mod tests {
     }
 
     #[test]
+    fn parses_config_report_commands() {
+        let parsed = parse_args(["sim", "--config-file=sim.toml", "config", "status"]).unwrap();
+        let CliCommand::Boot(boot) = parsed else {
+            panic!("expected boot command");
+        };
+        assert_eq!(
+            boot.config_report,
+            Some(ConfigReportRequest {
+                kind: ConfigReportKind::Status,
+                json: false,
+            })
+        );
+
+        let parsed = parse_args(["sim", "config", "effective", "sim/cookbook", "--json"]).unwrap();
+        let CliCommand::Boot(boot) = parsed else {
+            panic!("expected boot command");
+        };
+        assert_eq!(
+            boot.config_report,
+            Some(ConfigReportRequest {
+                kind: ConfigReportKind::Effective {
+                    lib: sim_kernel::Symbol::qualified("sim", "cookbook"),
+                },
+                json: true,
+            })
+        );
+
+        let parsed = parse_args(["sim", "config", "sources", "--json"]).unwrap();
+        let CliCommand::Boot(boot) = parsed else {
+            panic!("expected boot command");
+        };
+        assert_eq!(
+            boot.config_report,
+            Some(ConfigReportRequest {
+                kind: ConfigReportKind::Sources,
+                json: true,
+            })
+        );
+    }
+
+    #[test]
     fn rejects_missing_duplicate_and_unknown_flags() {
         assert_eq!(
             parse_args(["sim", "--codec"]).unwrap_err().to_string(),
@@ -288,6 +454,28 @@ mod tests {
         assert_eq!(
             parse_args(["sim", "--unknown"]).unwrap_err().to_string(),
             "unsupported argument: --unknown"
+        );
+        assert_eq!(
+            parse_args(["sim", "--config-file"])
+                .unwrap_err()
+                .to_string(),
+            "--config-file requires a value"
+        );
+        assert_eq!(
+            parse_args(["sim", "--config-work=a", "--config-work=b"])
+                .unwrap_err()
+                .to_string(),
+            "--config-work was provided more than once"
+        );
+        assert_eq!(
+            parse_args(["sim", "config"]).unwrap_err().to_string(),
+            "config requires one of: status, effective, sources"
+        );
+        assert_eq!(
+            parse_args(["sim", "config", "effective"])
+                .unwrap_err()
+                .to_string(),
+            "config effective requires exactly one library id"
         );
     }
 }
