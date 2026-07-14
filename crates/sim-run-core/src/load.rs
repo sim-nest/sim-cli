@@ -28,6 +28,7 @@ pub struct LoadSession {
     crates_io: CratesIoResolver,
     catalog_sources: BTreeMap<Symbol, LibSourceSpec>,
     default_verb_sources: BTreeMap<String, Vec<LibSourceSpec>>,
+    default_verb_config_libs: BTreeMap<String, Vec<Symbol>>,
     receipts: Vec<LoadReceipt>,
     config: RuntimeConfigState,
 }
@@ -46,6 +47,7 @@ impl LoadSession {
             crates_io: CratesIoResolver::default(),
             catalog_sources: BTreeMap::new(),
             default_verb_sources: BTreeMap::new(),
+            default_verb_config_libs: BTreeMap::new(),
             receipts: Vec::new(),
             config: RuntimeConfigState::default(),
         }
@@ -85,6 +87,16 @@ impl LoadSession {
         self.hosts.add(name, factory);
     }
 
+    /// Adds a host library factory that can inspect the discovered effective
+    /// runtime config before it builds the library.
+    pub fn add_host_factory_with_config(
+        &mut self,
+        name: impl Into<String>,
+        factory: impl Fn(&RuntimeConfigState) -> Box<dyn Lib> + Send + Sync + 'static,
+    ) {
+        self.hosts.add_with_config(name, factory);
+    }
+
     /// Adds a host library factory, builder-style.
     pub fn with_host_factory(
         mut self,
@@ -92,6 +104,16 @@ impl LoadSession {
         factory: impl Fn() -> Box<dyn Lib> + Send + Sync + 'static,
     ) -> Self {
         self.add_host_factory(name, factory);
+        self
+    }
+
+    /// Adds a config-aware host library factory, builder-style.
+    pub fn with_host_factory_with_config(
+        mut self,
+        name: impl Into<String>,
+        factory: impl Fn(&RuntimeConfigState) -> Box<dyn Lib> + Send + Sync + 'static,
+    ) -> Self {
+        self.add_host_factory_with_config(name, factory);
         self
     }
 
@@ -130,6 +152,12 @@ impl LoadSession {
         self.default_verb_sources.insert(verb.into(), sources);
     }
 
+    /// Registers config libraries read when `verb` is selected without explicit
+    /// loads.
+    pub fn add_default_verb_config_libs(&mut self, verb: impl Into<String>, libs: Vec<Symbol>) {
+        self.default_verb_config_libs.insert(verb.into(), libs);
+    }
+
     /// Registers sources used when `verb` is selected without explicit loads,
     /// builder-style.
     pub fn with_default_verb_sources(
@@ -138,6 +166,17 @@ impl LoadSession {
         sources: Vec<LibSourceSpec>,
     ) -> Self {
         self.add_default_verb_sources(verb, sources);
+        self
+    }
+
+    /// Registers config libraries read when `verb` is selected without explicit
+    /// loads, builder-style.
+    pub fn with_default_verb_config_libs(
+        mut self,
+        verb: impl Into<String>,
+        libs: Vec<Symbol>,
+    ) -> Self {
+        self.add_default_verb_config_libs(verb, libs);
         self
     }
 
@@ -193,7 +232,7 @@ impl LoadSession {
     /// Loads every requested library in the parsed boot controls.
     pub fn load_boot(&mut self, boot: &CliBoot) -> Result<&[LoadReceipt], CliError> {
         let boot = self.boot_with_default_verb_sources(boot);
-        let config_libs = config_libs_for_boot(&boot);
+        let config_libs = config_libs_for_boot(&boot, &self.default_verb_config_libs);
         self.config = load_config_sources(&mut self.cx, &boot.config, &config_libs);
         self.load_native_audio_provider(&boot);
         let codec_name = boot_codec_name(&boot);
@@ -368,7 +407,7 @@ impl LoadSession {
         name: &str,
         role: LoadReceiptRole,
     ) -> Result<LoadReceipt, CliError> {
-        let lib = self.hosts.instantiate(name)?;
+        let lib = self.hosts.instantiate(name, &self.config)?;
         let lib_id = self
             .loaders
             .load_and_register(&mut self.cx, KernelLibSource::Host(lib))
@@ -395,7 +434,10 @@ fn catalog_source_spec(source: CatalogSource) -> LibSourceSpec {
     }
 }
 
-fn config_libs_for_boot(boot: &CliBoot) -> Vec<Symbol> {
+fn config_libs_for_boot(
+    boot: &CliBoot,
+    default_verb_config_libs: &BTreeMap<String, Vec<Symbol>>,
+) -> Vec<Symbol> {
     let codec_name = boot_codec_name(boot);
     let mut libs = Vec::new();
     push_unique_symbol(&mut libs, symbol_from_text(&codec_lib_symbol(codec_name)));
@@ -408,6 +450,17 @@ fn config_libs_for_boot(boot: &CliBoot) -> Vec<Symbol> {
         && let Some(symbol) = config_lib_for_source(source)
     {
         push_unique_symbol(&mut libs, symbol);
+    }
+    if let Some(verb) = boot
+        .payload
+        .args
+        .first()
+        .map(|arg| arg.to_string_lossy().into_owned())
+        && let Some(symbols) = default_verb_config_libs.get(&verb)
+    {
+        for symbol in symbols {
+            push_unique_symbol(&mut libs, symbol.clone());
+        }
     }
     if let Some(request) = boot.config_report.as_ref() {
         match &request.kind {
@@ -454,9 +507,17 @@ impl Default for LoadSession {
     }
 }
 
+type PlainHostFactory = Box<dyn Fn() -> Box<dyn Lib> + Send + Sync>;
+type ConfigHostFactory = Box<dyn Fn(&RuntimeConfigState) -> Box<dyn Lib> + Send + Sync>;
+
+enum HostFactory {
+    Plain(PlainHostFactory),
+    Config(ConfigHostFactory),
+}
+
 #[derive(Default)]
 pub(crate) struct HostLibRegistry {
-    factories: BTreeMap<String, Box<dyn Fn() -> Box<dyn Lib> + Send + Sync>>,
+    factories: BTreeMap<String, HostFactory>,
 }
 
 impl HostLibRegistry {
@@ -465,13 +526,30 @@ impl HostLibRegistry {
         name: impl Into<String>,
         factory: impl Fn() -> Box<dyn Lib> + Send + Sync + 'static,
     ) {
-        self.factories.insert(name.into(), Box::new(factory));
+        self.factories
+            .insert(name.into(), HostFactory::Plain(Box::new(factory)));
     }
 
-    pub(crate) fn instantiate(&self, name: &str) -> Result<Box<dyn Lib>, CliError> {
+    fn add_with_config(
+        &mut self,
+        name: impl Into<String>,
+        factory: impl Fn(&RuntimeConfigState) -> Box<dyn Lib> + Send + Sync + 'static,
+    ) {
+        self.factories
+            .insert(name.into(), HostFactory::Config(Box::new(factory)));
+    }
+
+    pub(crate) fn instantiate(
+        &self,
+        name: &str,
+        config: &RuntimeConfigState,
+    ) -> Result<Box<dyn Lib>, CliError> {
         self.factories
             .get(name)
-            .map(|factory| factory())
+            .map(|factory| match factory {
+                HostFactory::Plain(factory) => factory(),
+                HostFactory::Config(factory) => factory(config),
+            })
             .ok_or_else(|| CliError::new(format!("unknown host library: {name}")))
     }
 

@@ -135,7 +135,7 @@ impl LoadSession {
     fn inspect_source(&mut self, source: &LibSourceSpec) -> Result<String, CliError> {
         match source {
             LibSourceSpec::Host(name) => {
-                let lib = self.hosts().instantiate(name)?;
+                let lib = self.hosts().instantiate(name, self.config_state())?;
                 Ok(format_manifest_source(source, source, &lib.manifest()))
             }
             LibSourceSpec::CratesIo(spec) => {

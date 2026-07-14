@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsString,
     fs,
     path::{Path, PathBuf},
     sync::Arc,
@@ -452,6 +453,108 @@ fn load_boot_discovers_codec_and_explicit_host_lib_configs() {
             .dir
             .table(&lib("test", "demo"))
             .is_some()
+    );
+
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn default_verb_config_libs_discover_per_lib_files_without_loading_rows() {
+    let base = temp_root("default-verb-config-libs");
+    let home = base.join("home");
+    let work = base.join("work");
+    write_file(
+        &work.join("libs").join("sim").join("cookbook.toml"),
+        r#"hide = ["numbers/cas"]
+
+[[loadable_lib]]
+id = "numbers/cas"
+source = "symbol:numbers/cas"
+"#,
+    );
+    let boot = CliBoot {
+        payload: crate::Payload {
+            args: vec![OsString::from("serve")],
+            ..crate::Payload::default()
+        },
+        config: roots(&home, &work),
+        ..CliBoot::default()
+    };
+    let mut session = LoadSession::new()
+        .with_host_factory("codec/lisp", || Box::new(FixtureLib::new("codec/lisp")))
+        .with_host_factory("lib/web-serve", || {
+            Box::new(FixtureLib::new("lib/web-serve"))
+        })
+        .with_default_verb_sources(
+            "serve",
+            vec![LibSourceSpec::Host("lib/web-serve".to_owned())],
+        )
+        .with_default_verb_config_libs("serve", vec![lib("sim", "cookbook")]);
+
+    session.load_boot(&boot).unwrap();
+
+    assert!(
+        session
+            .config_state()
+            .effective()
+            .dir
+            .table(&lib("sim", "cookbook"))
+            .is_some()
+    );
+    assert!(
+        session
+            .cx()
+            .registry()
+            .manifest_by_symbol(&lib("numbers", "cas"))
+            .is_none()
+    );
+
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn config_aware_host_factory_receives_effective_config() {
+    let base = temp_root("config-aware-host-factory");
+    let single = base.join("sim.toml");
+    write_file(
+        &single,
+        r#"[sim/cookbook]
+minimum_loaded = ["codec/lisp"]
+"#,
+    );
+    let boot = CliBoot {
+        loads: vec![LibSourceSpec::Host("test/demo".to_owned())],
+        config: ConfigLoadOptions {
+            roots: ConfigRoots::new(None, base.join("unused")),
+            read_files: true,
+            single_file: Some(single),
+            site_sources: Vec::new(),
+        },
+        ..CliBoot::default()
+    };
+    let mut session = LoadSession::new()
+        .with_host_factory("codec/lisp", || Box::new(FixtureLib::new("codec/lisp")))
+        .with_host_factory_with_config("test/demo", |config| {
+            let id = if config
+                .effective()
+                .dir
+                .table(&Symbol::qualified("sim", "cookbook"))
+                .is_some()
+            {
+                "test/configured"
+            } else {
+                "test/demo"
+            };
+            Box::new(FixtureLib::new(id))
+        });
+
+    session.load_boot(&boot).unwrap();
+
+    assert!(
+        session
+            .receipts()
+            .iter()
+            .any(|receipt| receipt.manifest.id == lib("test", "configured"))
     );
 
     let _ = fs::remove_dir_all(base);
