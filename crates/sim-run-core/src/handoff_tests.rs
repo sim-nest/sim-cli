@@ -7,7 +7,7 @@ use sim_kernel::{
 };
 
 use crate::{
-    CliBoot, LibSourceSpec, LoadSession, Payload,
+    Bootloader, CliBoot, LibSourceSpec, LoadSession, Payload,
     handoff::{CLI_MAIN_ENTRYPOINT, cli_main_entrypoint_symbol},
 };
 
@@ -396,7 +396,7 @@ fn entrypoint_receives_cli_envelope_value() {
 
 #[test]
 fn target_verbs_dispatch_from_symbol_loaded_libs_without_baked_cli() {
-    for verb in ["server", "atelier", "cookbook", "browse", "agent"] {
+    for verb in ["server", "atelier", "cookbook", "browse", "agent", "forge"] {
         let boot = CliBoot {
             codec: Some("test".to_owned()),
             loads: vec![LibSourceSpec::Symbol(verb.to_owned())],
@@ -415,6 +415,31 @@ fn target_verbs_dispatch_from_symbol_loaded_libs_without_baked_cli() {
 
         assert_eq!(code, 0, "{verb} should dispatch to its loaded lib");
     }
+}
+
+#[test]
+fn forge_verb_boots_through_bootloader() {
+    let expected = ExpectedEnvelope {
+        codec: "codec/lisp",
+        verb: "forge",
+        args: vec!["forge", "lift", "summarize the contract"],
+        eval: "nil",
+        script: "nil",
+        stdin: "nil",
+    };
+
+    let code = Bootloader::standard()
+        .host_lib("codec/lisp", || Box::new(FixtureLib::codec("lisp", None)))
+        .host_verb("forge", "app/forge", move || {
+            Box::new(FixtureLib::app(
+                "forge",
+                FixtureEntrypoint::echo(expected.clone()),
+            ))
+        })
+        .run(["sim", "forge", "lift", "summarize the contract"])
+        .unwrap();
+
+    assert_eq!(code, 0);
 }
 
 #[test]
