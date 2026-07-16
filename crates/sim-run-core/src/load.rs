@@ -33,6 +33,29 @@ pub struct LoadSession {
     config: RuntimeConfigState,
 }
 
+trait GrantOutcome {
+    fn expect_granted(self);
+}
+
+impl GrantOutcome for () {
+    fn expect_granted(self) {}
+}
+
+impl GrantOutcome for Result<(), KernelError> {
+    fn expect_granted(self) {
+        self.expect("load session grant seat grants into its own Cx");
+    }
+}
+
+macro_rules! expect_granted {
+    ($grant:expr) => {{
+        #[allow(clippy::let_unit_value)]
+        let grant_result = $grant;
+        #[allow(clippy::unit_arg)]
+        grant_result.expect_granted();
+    }};
+}
+
 impl LoadSession {
     /// Builds a loader session with an empty static host catalog.
     pub fn new() -> Self {
@@ -139,7 +162,7 @@ impl LoadSession {
     /// host has granted it. This lets a composed `sim` build authorize the
     /// loaders it registers.
     pub fn with_capability(mut self, capability: CapabilityName) -> Self {
-        self.seat.grant(&mut self.cx, capability);
+        expect_granted!(self.seat.grant(&mut self.cx, capability));
         self
     }
 
@@ -262,8 +285,10 @@ impl LoadSession {
         let Some(source) = boot.native_audio_provider.as_deref() else {
             return;
         };
-        self.seat
-            .grant(&mut self.cx, native_audio_provider_capability());
+        expect_granted!(
+            self.seat
+                .grant(&mut self.cx, native_audio_provider_capability())
+        );
         if self
             .load_source_with_role(source, LoadReceiptRole::Library)
             .is_err()
