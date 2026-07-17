@@ -260,7 +260,7 @@ impl LoadSession {
         self.load_native_audio_provider(&boot);
         let codec_name = boot_codec_name(&boot);
         let codec_symbol = codec_lib_symbol(codec_name);
-        let codec_index = explicit_codec_source_index(&boot, &codec_symbol);
+        let codec_index = self.boot_codec_source_index(&boot, &codec_symbol);
         match codec_index {
             Some(index) => {
                 self.load_boot_codec_source(codec_name, &codec_symbol, &boot.loads[index])?;
@@ -318,9 +318,48 @@ impl LoadSession {
         boot
     }
 
+    fn boot_codec_source_index(&mut self, boot: &CliBoot, codec_symbol: &str) -> Option<usize> {
+        if let Some(index) = explicit_codec_source_index(boot, codec_symbol) {
+            return Some(index);
+        }
+
+        let codec_symbol = symbol_from_text(codec_symbol);
+        for (index, source) in boot.loads.iter().enumerate() {
+            // Best-effort manifest inspection lets path/bytes/crates.io sources
+            // supply the boot codec without blocking on unrelated load errors.
+            if self
+                .inspect_source_manifest(source)
+                .ok()
+                .is_some_and(|manifest| manifest_exports_codec(&manifest, &codec_symbol))
+            {
+                return Some(index);
+            }
+        }
+        None
+    }
+
     /// Loads one source through the kernel loader and records a receipt.
     pub fn load_source(&mut self, source: &LibSourceSpec) -> Result<LoadReceipt, CliError> {
         self.load_source_with_role(source, LoadReceiptRole::Library)
+    }
+
+    fn inspect_source_manifest(&mut self, source: &LibSourceSpec) -> Result<LibManifest, CliError> {
+        match source {
+            LibSourceSpec::Host(name) => self.hosts.inspect_manifest(name, &self.config),
+            LibSourceSpec::CratesIo(spec) => {
+                let resolved = self.crates_io.resolve(spec)?;
+                let data_source = KernelLibSourceSpec::Path(resolved.artifact);
+                ensure_loadable_path(&data_source, source)?;
+                self.inspect_data_source_manifest(data_source)
+            }
+            _ => {
+                let data_source = source
+                    .to_kernel_data_source()
+                    .expect("non-host sources have data forms");
+                ensure_loadable_path(&data_source, source)?;
+                self.inspect_data_source_manifest(data_source)
+            }
+        }
     }
 
     fn load_boot_codec_source(
@@ -578,6 +617,14 @@ impl HostLibRegistry {
             .ok_or_else(|| CliError::new(format!("unknown host library: {name}")))
     }
 
+    fn inspect_manifest(
+        &self,
+        name: &str,
+        config: &RuntimeConfigState,
+    ) -> Result<LibManifest, CliError> {
+        Ok(self.instantiate(name, config)?.manifest())
+    }
+
     fn contains(&self, name: &str) -> bool {
         self.factories.contains_key(name)
     }
@@ -654,4 +701,11 @@ fn no_codec_error(codec_name: &str, err: CliError) -> CliError {
     CliError::new(format!(
         "no codec '{codec_name}' available; provide one with --load ({err})"
     ))
+}
+
+fn manifest_exports_codec(manifest: &LibManifest, codec_symbol: &Symbol) -> bool {
+    manifest.exports.iter().any(|export| match export {
+        sim_kernel::Export::Codec { symbol, .. } => symbol == codec_symbol,
+        _ => false,
+    })
 }

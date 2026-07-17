@@ -10,8 +10,8 @@ use std::{
 
 use sim_codec::{Input, decode_with_codec, encode_with_codec};
 use sim_kernel::{
-    Cx, DefaultFactory, EncodeOptions, Expr, LibSource, LoaderRegistry, NoopEvalPolicy, QuoteMode,
-    ReadPolicy, Symbol, native_dynamic_load_capability,
+    Cx, DefaultFactory, EncodeOptions, Expr, LibSource, LoaderRegistry, NoopEvalPolicy,
+    NumberLiteral, QuoteMode, ReadPolicy, Symbol, native_dynamic_load_capability,
 };
 
 use support::{
@@ -35,6 +35,16 @@ const LISP_CODEC_PATCHES: &[(&str, &str, &str)] = &[
     ("sim-cookbook", "sim-foundation", "crates/sim-cookbook"),
     ("sim-kernel", "sim-kernel", "."),
     ("sim-lib-core", "sim-runtime", "crates/sim-lib-core"),
+    (
+        "sim-lib-numbers-core",
+        "sim-numbers",
+        "crates/sim-lib-numbers-core",
+    ),
+    (
+        "sim-lib-numbers-f64",
+        "sim-numbers",
+        "crates/sim-lib-numbers-f64",
+    ),
     ("sim-macros", "sim-foundation", "crates/sim-macros"),
     ("sim-shape", "sim-shape", "."),
     ("sim-value", "sim-foundation", "crates/sim-value"),
@@ -53,6 +63,16 @@ const LISP_CODEC_REQUIRED_SOURCES: &[(&str, &str, &str)] = &[
     ("sim-cookbook", "sim-foundation", "crates/sim-cookbook"),
     ("sim-kernel", "sim-kernel", "."),
     ("sim-lib-core", "sim-runtime", "crates/sim-lib-core"),
+    (
+        "sim-lib-numbers-core",
+        "sim-numbers",
+        "crates/sim-lib-numbers-core",
+    ),
+    (
+        "sim-lib-numbers-f64",
+        "sim-numbers",
+        "crates/sim-lib-numbers-f64",
+    ),
     ("sim-macros", "sim-foundation", "crates/sim-macros"),
     ("sim-shape", "sim-shape", "."),
     ("sim-value", "sim-foundation", "crates/sim-value"),
@@ -95,6 +115,28 @@ fn native_lisp_codec_loads_and_decodes_through_cli_loader() {
             mode: QuoteMode::Quote,
             expr: Box::new(Expr::Symbol(Symbol::new("native-codec-loaded"))),
         }
+    );
+
+    let numeric = decode_with_codec(
+        &mut cx,
+        &codec,
+        Input::Text("(math/add 1 2)".to_owned()),
+        ReadPolicy::default(),
+    )
+    .expect("loaded Lisp codec should decode numeric literals");
+    assert_eq!(
+        numeric,
+        Expr::List(vec![
+            Expr::Symbol(Symbol::qualified("math", "add")),
+            Expr::Number(NumberLiteral {
+                domain: Symbol::qualified("numbers", "f64"),
+                canonical: "1".to_owned(),
+            }),
+            Expr::Number(NumberLiteral {
+                domain: Symbol::qualified("numbers", "f64"),
+                canonical: "2".to_owned(),
+            }),
+        ])
     );
 
     let encoded = encode_with_codec(&mut cx, &codec, &decoded, EncodeOptions::default())
@@ -242,6 +284,7 @@ fn build_lisp_codec_dylib(context: &FeatureBuildContext) -> PathBuf {
         LISP_CODEC_PATCHES,
     );
     command
+        .env("CARGO_PROFILE_DEV_DEBUG", "0")
         .arg("--features")
         .arg("native-export")
         .arg("--target-dir")
@@ -298,20 +341,50 @@ struct FixtureServer {
 impl FixtureServer {
     fn start<const N: usize>(routes: [(String, Vec<u8>); N]) -> Self {
         use std::{
-            collections::BTreeMap,
-            io::{Read, Write},
+            collections::{BTreeMap, BTreeSet},
+            io::{ErrorKind, Read, Write},
             net::TcpListener,
             thread,
+            time::{Duration, Instant},
         };
 
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
         let routes = routes.into_iter().collect::<BTreeMap<_, _>>();
         let handle = thread::spawn(move || {
-            for _ in 0..N {
-                let (mut stream, _) = listener.accept().unwrap();
+            let deadline = Instant::now() + Duration::from_secs(10);
+            let quiet_period = Duration::from_millis(250);
+            let mut seen = BTreeSet::new();
+            let mut last_activity = Instant::now();
+            while Instant::now() < deadline {
+                if seen.len() == routes.len() && last_activity.elapsed() >= quiet_period {
+                    break;
+                }
+                let (mut stream, _) = match listener.accept() {
+                    Ok(accepted) => accepted,
+                    Err(err) if err.kind() == ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(10));
+                        continue;
+                    }
+                    Err(err) => panic!("fixture server accept failed: {err}"),
+                };
                 let mut request = [0_u8; 2048];
-                let size = stream.read(&mut request).unwrap();
+                let size = match stream.read(&mut request) {
+                    Ok(size) => size,
+                    Err(err)
+                        if matches!(
+                            err.kind(),
+                            ErrorKind::ConnectionReset | ErrorKind::UnexpectedEof
+                        ) =>
+                    {
+                        continue;
+                    }
+                    Err(err) => panic!("fixture server read failed: {err}"),
+                };
+                if size == 0 {
+                    continue;
+                }
                 let request = String::from_utf8_lossy(&request[..size]);
                 let path = request
                     .lines()
@@ -319,18 +392,30 @@ impl FixtureServer {
                     .and_then(|line| line.split_ascii_whitespace().nth(1))
                     .unwrap();
                 let Some(body) = routes.get(path) else {
-                    stream
-                        .write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n")
-                        .unwrap();
+                    let _ =
+                        stream.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n");
                     continue;
                 };
                 let response = format!(
                     "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                     body.len()
                 );
-                stream.write_all(response.as_bytes()).unwrap();
-                stream.write_all(body).unwrap();
+                if stream.write_all(response.as_bytes()).is_err() || stream.write_all(body).is_err()
+                {
+                    continue;
+                }
+                seen.insert(path.to_owned());
+                last_activity = Instant::now();
             }
+            assert!(
+                seen.len() == routes.len(),
+                "fixture server missed routes: {:?}",
+                routes
+                    .keys()
+                    .filter(|path| !seen.contains(*path))
+                    .cloned()
+                    .collect::<Vec<_>>()
+            );
         });
         Self { endpoint, handle }
     }

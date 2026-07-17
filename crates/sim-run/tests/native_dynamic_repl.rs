@@ -18,6 +18,8 @@ const NUMBERS_F64_SOURCE: (&str, &str, &str) = (
     "sim-numbers",
     "crates/sim-lib-numbers-f64",
 );
+const LISP_CODEC_SOURCE: (&str, &str, &str) =
+    ("sim-codec-lisp", "sim-codecs", "crates/sim-codec-lisp");
 const STANDARD_CORE_SOURCE: (&str, &str, &str) = (
     "sim-lib-standard-core",
     "sim-runtime",
@@ -32,6 +34,7 @@ const PATCHES: &[(&str, &str, &str)] = &[
     ),
     ("sim-codec", "sim-codecs", "crates/sim-codec"),
     ("sim-codec-binary", "sim-codecs", "crates/sim-codec-binary"),
+    ("sim-lib-core", "sim-runtime", "crates/sim-lib-core"),
     ("sim-cookbook", "sim-foundation", "crates/sim-cookbook"),
     ("sim-kernel", "sim-kernel", "."),
     (
@@ -39,11 +42,18 @@ const PATCHES: &[(&str, &str, &str)] = &[
         "sim-numbers",
         "crates/sim-lib-numbers-core",
     ),
+    (
+        "sim-lib-numbers-f64",
+        "sim-numbers",
+        "crates/sim-lib-numbers-f64",
+    ),
     ("sim-macros", "sim-foundation", "crates/sim-macros"),
+    ("sim-nest", "sim-sdk", "."),
     ("sim-shape", "sim-shape", "."),
     ("sim-value", "sim-foundation", "crates/sim-value"),
 ];
 const REQUIRED_SOURCES: &[(&str, &str, &str)] = &[
+    LISP_CODEC_SOURCE,
     NUMBERS_F64_SOURCE,
     STANDARD_CORE_SOURCE,
     ("sim-citizen", "sim-citizen", "crates/sim-citizen"),
@@ -54,6 +64,7 @@ const REQUIRED_SOURCES: &[(&str, &str, &str)] = &[
     ),
     ("sim-codec", "sim-codecs", "crates/sim-codec"),
     ("sim-codec-binary", "sim-codecs", "crates/sim-codec-binary"),
+    ("sim-lib-core", "sim-runtime", "crates/sim-lib-core"),
     ("sim-cookbook", "sim-foundation", "crates/sim-cookbook"),
     ("sim-kernel", "sim-kernel", "."),
     (
@@ -62,6 +73,7 @@ const REQUIRED_SOURCES: &[(&str, &str, &str)] = &[
         "crates/sim-lib-numbers-core",
     ),
     ("sim-macros", "sim-foundation", "crates/sim-macros"),
+    ("sim-nest", "sim-sdk", "."),
     ("sim-shape", "sim-shape", "."),
     ("sim-value", "sim-foundation", "crates/sim-value"),
 ];
@@ -71,7 +83,8 @@ fn sim_repl_loads_native_proof_bundle_and_evaluates_stdin() {
     let Some(context) = maybe_feature_build_context(REQUIRED_SOURCES) else {
         return;
     };
-    let bundle_dir = build_repl_proof_bundle(&context);
+    let bundle_dir = build_repl_bundle(&context);
+    assert!(bundle_dir.join(dylib_file_name("sim_codec_lisp")).is_file());
     assert!(
         bundle_dir
             .join(dylib_file_name("sim_lib_numbers_f64"))
@@ -135,8 +148,15 @@ fn assert_repl_success(output: &std::process::Output) {
     );
 }
 
-fn build_repl_proof_bundle(context: &FeatureBuildContext) -> PathBuf {
+fn build_repl_bundle(context: &FeatureBuildContext) -> PathBuf {
     let target_dir = unique_target_dir("repl-native-bundle");
+    build_native_dylib(
+        context,
+        "sim-codec-lisp",
+        LISP_CODEC_SOURCE,
+        &["native-export"],
+        &target_dir,
+    );
     build_native_dylib(
         context,
         "sim-lib-numbers-f64",
@@ -166,7 +186,10 @@ fn build_native_dylib(
     if !features.is_empty() {
         command.arg("--features").arg(features.join(","));
     }
-    command.arg("--target-dir").arg(target_dir);
+    command
+        .env("CARGO_PROFILE_DEV_DEBUG", "0")
+        .arg("--target-dir")
+        .arg(target_dir);
 
     let status = command
         .status()

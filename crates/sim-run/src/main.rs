@@ -16,8 +16,6 @@ use std::process;
 
 #[cfg(any(feature = "dynamic-native", feature = "wasm"))]
 mod loader_boot;
-#[cfg(feature = "dynamic-native")]
-mod repl_boot_codec;
 
 fn main() {
     let code = boot().unwrap_or_else(|err| {

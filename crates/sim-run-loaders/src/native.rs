@@ -106,77 +106,115 @@ impl LibLoader for NativeDylibLoader {
             }
         };
 
-        let library = unsafe { libloading::Library::new(&path) }.map_err(|err| {
-            sim_kernel::Error::HostError(format!(
-                "failed to open native dylib {}: {err}",
-                path.display()
-            ))
-        })?;
-
-        let entrypoint = unsafe {
-            library.get::<unsafe extern "C" fn() -> *const sim_kernel::NativeLibAbiV1>(
-                sim_kernel::NATIVE_DYLIB_ENTRYPOINT_V1.as_bytes(),
-            )
-        }
-        .map_err(|err| {
-            sim_kernel::Error::HostError(format!(
-                "failed to resolve {} from {}: {err}",
-                sim_kernel::NATIVE_DYLIB_ENTRYPOINT_V1,
-                path.display()
-            ))
-        })?;
-
-        let abi_ptr = unsafe { entrypoint() };
-        if abi_ptr.is_null() {
-            return Err(sim_kernel::Error::HostError(format!(
-                "native dylib {} returned a null ABI pointer",
-                path.display()
-            )));
-        }
-
-        // Probe only the version header first: the entrypoint guarantees at
-        // least `HEADER_SIZE` bytes, so reading the header is in-bounds.
-        let header =
-            unsafe { std::ptr::read_unaligned(abi_ptr.cast::<sim_kernel::NativeLibAbiHeaderV1>()) };
-        validate_native_abi_header(&header, &path)?;
-
-        // F1: the header only proves `HEADER_SIZE` bytes; refuse to read the
-        // full vtable (six function pointers) until `struct_size` proves the
-        // pointee is at least a whole `NativeLibAbiV1`. Reading it otherwise is
-        // an out-of-bounds `read_unaligned`.
-        if header.struct_size < std::mem::size_of::<sim_kernel::NativeLibAbiV1>() {
-            return Err(sim_kernel::Error::HostError(format!(
-                "native dylib {} reported ABI struct size {} smaller than host minimum {}",
-                path.display(),
-                header.struct_size,
-                std::mem::size_of::<sim_kernel::NativeLibAbiV1>()
-            )));
-        }
-
-        let abi = unsafe { std::ptr::read_unaligned(abi_ptr) };
-
-        let instance = unsafe { (abi.instantiate)() };
-        if instance.is_null() {
-            return Err(sim_kernel::Error::HostError(format!(
-                "native dylib {} returned a null lib instance",
-                path.display()
-            )));
-        }
-
+        let (library, abi) = open_native_abi(&path)?;
         // Own the instance immediately: from here every early return (`?`)
         // drops `shared` and destroys the guest instance exactly once, so
         // manifest-fetch, decode, and conversion failures cannot leak it.
-        let shared = Arc::new(NativeAbiShared::new(library, abi, instance));
-        let bytes = shared.manifest_bytes()?;
-        let (_, manifest_expr) = sim_codec_binary::decode_frame(sim_kernel::CodecId(0), &bytes)?;
-        let manifest = crate::manifest::expr_to_manifest(manifest_expr)?;
-        // F2: trust is assigned by the loader, not by guest text. A native
-        // dylib manifest that self-labels a non-native target (for example
-        // `host-registered`, which would escape the untrusted-source eval
-        // denial) is rejected outright rather than silently accepted.
-        let manifest = native_manifest(manifest)?;
+        let shared = Arc::new(instantiate_native_shared(library, abi, &path)?);
+        let manifest = load_native_manifest(shared.as_ref())?;
         Ok(Box::new(LoadedNativeLib::new(shared, manifest)))
     }
+
+    #[allow(unsafe_code)]
+    fn inspect_manifest(
+        &self,
+        cx: &mut Cx,
+        source: &LibSource,
+    ) -> Result<Option<sim_kernel::LibManifest>> {
+        cx.require(&sim_kernel::native_dynamic_load_capability())?;
+
+        let path = match source {
+            LibSource::Path(path) if is_native_library(path) => path,
+            _ => return Ok(None),
+        };
+
+        let (library, abi) = open_native_abi(path)?;
+        let shared = instantiate_native_shared(library, abi, path)?;
+        Ok(Some(load_native_manifest(&shared)?))
+    }
+}
+
+#[cfg(all(feature = "dynamic-native", not(target_arch = "wasm32")))]
+#[allow(unsafe_code)]
+fn open_native_abi(path: &Path) -> Result<(libloading::Library, sim_kernel::NativeLibAbiV1)> {
+    let library = unsafe { libloading::Library::new(path) }.map_err(|err| {
+        sim_kernel::Error::HostError(format!(
+            "failed to open native dylib {}: {err}",
+            path.display()
+        ))
+    })?;
+
+    let entrypoint = unsafe {
+        library.get::<unsafe extern "C" fn() -> *const sim_kernel::NativeLibAbiV1>(
+            sim_kernel::NATIVE_DYLIB_ENTRYPOINT_V1.as_bytes(),
+        )
+    }
+    .map_err(|err| {
+        sim_kernel::Error::HostError(format!(
+            "failed to resolve {} from {}: {err}",
+            sim_kernel::NATIVE_DYLIB_ENTRYPOINT_V1,
+            path.display()
+        ))
+    })?;
+
+    let abi_ptr = unsafe { entrypoint() };
+    if abi_ptr.is_null() {
+        return Err(sim_kernel::Error::HostError(format!(
+            "native dylib {} returned a null ABI pointer",
+            path.display()
+        )));
+    }
+
+    // Probe only the version header first: the entrypoint guarantees at least
+    // `HEADER_SIZE` bytes, so reading the header is in-bounds.
+    let header =
+        unsafe { std::ptr::read_unaligned(abi_ptr.cast::<sim_kernel::NativeLibAbiHeaderV1>()) };
+    validate_native_abi_header(&header, path)?;
+
+    // F1: the header only proves `HEADER_SIZE` bytes; refuse to read the full
+    // vtable (six function pointers) until `struct_size` proves the pointee is
+    // at least a whole `NativeLibAbiV1`. Reading it otherwise is an
+    // out-of-bounds `read_unaligned`.
+    if header.struct_size < std::mem::size_of::<sim_kernel::NativeLibAbiV1>() {
+        return Err(sim_kernel::Error::HostError(format!(
+            "native dylib {} reported ABI struct size {} smaller than host minimum {}",
+            path.display(),
+            header.struct_size,
+            std::mem::size_of::<sim_kernel::NativeLibAbiV1>()
+        )));
+    }
+
+    let abi = unsafe { std::ptr::read_unaligned(abi_ptr) };
+    Ok((library, abi))
+}
+
+#[cfg(all(feature = "dynamic-native", not(target_arch = "wasm32")))]
+#[allow(unsafe_code)]
+fn instantiate_native_shared(
+    library: libloading::Library,
+    abi: sim_kernel::NativeLibAbiV1,
+    path: &Path,
+) -> Result<NativeAbiShared> {
+    let instance = unsafe { (abi.instantiate)() };
+    if instance.is_null() {
+        return Err(sim_kernel::Error::HostError(format!(
+            "native dylib {} returned a null lib instance",
+            path.display()
+        )));
+    }
+    Ok(NativeAbiShared::new(library, abi, instance))
+}
+
+#[cfg(all(feature = "dynamic-native", not(target_arch = "wasm32")))]
+fn load_native_manifest(shared: &NativeAbiShared) -> Result<sim_kernel::LibManifest> {
+    let bytes = shared.manifest_bytes()?;
+    let (_, manifest_expr) = sim_codec_binary::decode_frame(sim_kernel::CodecId(0), &bytes)?;
+    let manifest = crate::manifest::expr_to_manifest(manifest_expr)?;
+    // F2: trust is assigned by the loader, not by guest text. A native dylib
+    // manifest that self-labels a non-native target (for example
+    // `host-registered`, which would escape the untrusted-source eval denial)
+    // is rejected outright rather than silently accepted.
+    native_manifest(manifest)
 }
 
 /// Copies an ABI owned-byte buffer into an owned `Vec`, validating its shape

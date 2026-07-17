@@ -12,9 +12,7 @@
           "edges": [
             "dep:sim-run-loaders",
             "sim-run-loaders/dynamic-native",
-            "dep:sim-codec",
             "dep:sim-kernel",
-            "dep:sim-lib-numbers-arith",
             "dep:sim-lib-repl"
           ],
           "name": "dynamic-native",
