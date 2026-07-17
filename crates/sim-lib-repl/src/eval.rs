@@ -36,7 +36,8 @@ impl Default for ReplEvalOptions {
 }
 
 /// Decodes, evaluates, and re-encodes one source line through `codec`.
-pub fn eval_line(cx: &mut Cx, codec: &Symbol, line: &str) -> Result<String, String> {
+#[cfg(test)]
+fn eval_line_for_tests(cx: &mut Cx, codec: &Symbol, line: &str) -> Result<String, String> {
     let decoded = decode_eval_expr(cx, codec, line)?;
     let value = cx.eval_expr(decoded).map_err(|err| format!("{err:?}"))?;
     let expr = value
@@ -124,7 +125,7 @@ where
         if trimmed.is_empty() {
             continue;
         }
-        match eval_line(cx, codec, trimmed) {
+        match eval_requested_text(cx, codec, trimmed) {
             Ok(result) => writeln!(writer, "{result}"),
             Err(err) => writeln!(writer, "error: {err}"),
         }
@@ -158,7 +159,7 @@ mod tests {
     use sim_lib_numbers_prelude::NumbersPreludeLib;
     use sim_shape::{ExprKind, ExprKindShape};
 
-    use super::{ReplEvalOptions, eval_line, eval_requested_text, run_repl_lines};
+    use super::{ReplEvalOptions, eval_line_for_tests, eval_requested_text, run_repl_lines};
 
     fn boot() -> Cx {
         let mut cx = sim_test_support::core_cx();
@@ -169,11 +170,11 @@ mod tests {
     }
 
     #[test]
-    fn eval_line_computes_value() {
+    fn eval_line_for_tests_computes_value() {
         let mut cx = boot();
         let codec = Symbol::qualified("codec", "lisp");
 
-        let result = eval_line(&mut cx, &codec, "(math/add (math/mul 6 7) 0)").unwrap();
+        let result = eval_line_for_tests(&mut cx, &codec, "(math/add (math/mul 6 7) 0)").unwrap();
 
         assert_eq!(result, "42");
     }
@@ -266,5 +267,28 @@ mod tests {
         .unwrap();
 
         assert_eq!(String::from_utf8(output).unwrap(), "3\n");
+    }
+
+    #[test]
+    fn run_repl_lines_records_repl_admission() {
+        let mut cx = boot();
+        let codec = Symbol::qualified("codec", "lisp");
+        let mut output = Vec::new();
+
+        run_repl_lines(&mut cx, &codec, "(math/add 1 2)\n".as_bytes(), &mut output).unwrap();
+
+        assert_eq!(String::from_utf8(output).unwrap(), "3\n");
+        let broker = cx
+            .resolve_value(&read_eval_broker_symbol())
+            .unwrap()
+            .object()
+            .downcast_ref::<sim_lib_core::ReadEvalBroker>()
+            .cloned()
+            .unwrap();
+        let decisions = broker.decisions(&cx).unwrap();
+        assert!(decisions.iter().any(|decision| {
+            decision.origin.tag == Symbol::new("repl")
+                && decision.outcome == ReadEvalOutcome::Admitted
+        }));
     }
 }
