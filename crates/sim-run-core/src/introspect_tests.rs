@@ -279,6 +279,34 @@ fn inspect_loaded_lib_and_export_uses_open_export_records() {
 }
 
 #[test]
+fn inspect_host_registered_tty_surface_reports_loadable_functions() {
+    let boot = CliBoot {
+        codec: Some("test".to_owned()),
+        loads: vec![LibSourceSpec::Host("surface/tty".to_owned())],
+        native_audio_provider: None,
+        config: crate::ConfigLoadOptions::default(),
+        list: false,
+        inspect: Some("view/tty".to_owned()),
+        config_report: None,
+        payload: Payload::default(),
+    };
+    let mut session =
+        session().with_host_factory("surface/tty", || Box::new(sim_view_tty::TtyViewLib::new()));
+
+    let output = session.run_loaded_introspection(&boot).unwrap();
+
+    assert!(output.contains("lib view/tty"), "{output}");
+    assert!(
+        output.contains("kind=function symbol=surface/tty/render state=resolved"),
+        "{output}"
+    );
+    assert!(
+        output.contains("kind=function symbol=surface/tty/intent state=resolved"),
+        "{output}"
+    );
+}
+
+#[test]
 fn inspect_source_handles_host_bytes_path_symbol_and_crates_sources() {
     let path = temp_artifact("inspect-path");
     let crate_artifact = temp_artifact("inspect-crate");

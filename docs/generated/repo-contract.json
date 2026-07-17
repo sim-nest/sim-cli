@@ -237,7 +237,15 @@
     },
     {
       "crate_name": "sim_run_core",
-      "dependencies": [],
+      "dependencies": [
+        {
+          "kind": "dev",
+          "optional": false,
+          "package": "sim-view-tty",
+          "rename": null,
+          "target": null
+        }
+      ],
       "description": "Core command entry API for the SIM bootloader.",
       "features": [
         {
@@ -382,10 +390,10 @@
     "generated_by": "cargo run -p xtask -- simdoc",
     "generation_timestamp": "2026-07-16T03:56:38+02:00",
     "generator": "xtask repo-contract v1",
-    "git_commit": "16853c6da7bb7e6ea2ab57580d97fb8bb56928f8",
+    "git_commit": "42930347a391bd7099cf35ab03b9a554c8c62dae",
     "repo": "sim-run",
     "schema": "sim.provenance.v1",
-    "source_commit": "16853c6da7bb7e6ea2ab57580d97fb8bb56928f8",
+    "source_commit": "42930347a391bd7099cf35ab03b9a554c8c62dae",
     "source_remote": "https://github.com/sim-nest/sim-run",
     "validation_commands": [
       "cargo fmt --all --check",
@@ -398,9 +406,9 @@
       "cargo run -p xtask -- validation-matrix --check --repo .",
       "cargo run -p xtask -- crate-catalog --check --repo ."
     ],
-    "workspace_hash": "3f36c496d37c9d66",
+    "workspace_hash": "7d63881046bd6d82",
     "workspace_hash_algorithm": "fnv1a64",
-    "workspace_hash_input_count": 74,
+    "workspace_hash_input_count": 75,
     "workspace_hash_inputs": [
       "Cargo.toml",
       "crates/sim-lib-repl/Cargo.toml",
@@ -457,6 +465,7 @@
       "crates/sim-run-loaders/src/wasm.rs",
       "crates/sim-view-tty/Cargo.toml",
       "crates/sim-view-tty/src/caps.rs",
+      "crates/sim-view-tty/src/entrypoint.rs",
       "crates/sim-view-tty/src/input.rs",
       "crates/sim-view-tty/src/lib.rs",
       "crates/sim-view-tty/src/render.rs",
