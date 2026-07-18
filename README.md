@@ -4,19 +4,21 @@ sim-run is the command-line bootloader repository for SIM.
 
 ## Run it
 
-Installing the `sim-run` crate gives you the `sim` command -- one binary that
-starts a session, loads plug-ins, and answers you at a live prompt.
+Installing the `sim-run` crate gives you the `sim` command: a bootloader that
+loads the codec and libraries you provide, then hands your payload to the loaded
+entrypoint.
 
 ```bash
 cargo install sim-run     # installs the `sim` command
 sim --version
-sim repl                  # a live prompt: type (math/add 6 7) -> 13
+sim --help
+sim --load crates.io:sim-codec-lisp@^0.1 --list
 ```
 
-`sim webui` opens the browser UI and `sim mcp` starts a Model Context
-Protocol server; the full walkthrough (what each surface shows, local
-fallbacks) is in [sim-say](https://github.com/sim-nest/sim-say). The exact
-command grammar is under [Reference: the command surface](#reference-the-command-surface).
+Loadable libraries provide surfaces such as REPL, browser, and MCP entrypoints.
+The full walkthrough is in [sim-say](https://github.com/sim-nest/sim-say), and
+the exact command grammar is under
+[Reference: the command surface](#reference-the-command-surface).
 
 ## Crates
 
@@ -100,10 +102,14 @@ packaging uses crates.io version requirements.
 
 ## Validation
 
-These commands run in the constellation workspace; only `sim-kernel` builds from a lone clone today (see `DEVELOPING.md` in `sim-sdk`). A single-repo build lands with the first crates.io publish.
+These commands run from this checkout with crates.io constellation crates and
+local workspace members:
 
 ```bash
-cargo fmt --check && cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo doc --workspace --no-deps
+cargo fmt --all --check
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo doc --workspace --no-deps
 cargo run -p xtask -- simdoc --check
 cargo run -p xtask -- check-file-sizes
 ```

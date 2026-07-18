@@ -9,9 +9,9 @@
 //! the in-process [`LoadSession::add_host_factory`] host loader: with no host
 //! factory and no injected artifact loader it can boot **no codec and no
 //! library**, so `run(["sim", "run"])` fails with `no codec 'lisp' available`.
-//! This is by design -- behavior lives in loadable libraries, not baked into the
-//! frame -- but until the constellation is published there is no default codec
-//! to load.
+//! This is by design: behavior lives in loadable libraries, not baked into the
+//! frame. The default frame loads a codec when an explicit source, cache
+//! artifact, registry resolver, or host factory supplies it.
 //!
 //! A working session therefore comes from one of:
 //!

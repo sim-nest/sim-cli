@@ -172,7 +172,7 @@ fn open_native_abi(path: &Path) -> Result<(libloading::Library, sim_kernel::Nati
     validate_native_abi_header(&header, path)?;
 
     // F1: the header only proves `HEADER_SIZE` bytes; refuse to read the full
-    // vtable (six function pointers) until `struct_size` proves the pointee is
+    // vtable (six function pointers) before `struct_size` proves the pointee is
     // at least a whole `NativeLibAbiV1`. Reading it otherwise is an
     // out-of-bounds `read_unaligned`.
     if header.struct_size < std::mem::size_of::<sim_kernel::NativeLibAbiV1>() {
