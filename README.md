@@ -83,9 +83,9 @@ source overrides outside git. Local development and package listing use the
 generated meta-workspace from the control checkout:
 
 ```bash
+cd "$CONTROL_ROOT"
 sh bin/simctl meta-build
-cargo package --manifest-path .meta-workspace/Cargo.toml -p sim-run-core --allow-dirty --list
-cargo package --manifest-path .meta-workspace/Cargo.toml -p sim-run --allow-dirty --list
+SIM_META_WORKSPACE_MANIFEST="$PWD/.meta-workspace/Cargo.toml" sh ../sim-run/recipes/publish-readiness/package-list/setup.sh
 ```
 
 From this checkout, point cross-repo recipes at that generated manifest:
@@ -105,6 +105,7 @@ These commands run in the constellation workspace; only `sim-kernel` builds from
 ```bash
 cargo fmt --check && cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo doc --workspace --no-deps
 cargo run -p xtask -- simdoc --check
+cargo run -p xtask -- check-file-sizes
 ```
 
 ## Documentation Lanes
