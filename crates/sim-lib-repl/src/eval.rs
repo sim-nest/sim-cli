@@ -6,7 +6,7 @@ use sim_codec::{
 };
 use sim_kernel::{
     CapabilityName, CapabilitySet, Cx, EncodeOptions, Expr, ReadPolicy, Shape, Symbol, TrustLevel,
-    read_eval_capability,
+    macro_expand_eval_capability, read_eval_capability,
 };
 use sim_lib_core::{
     ReadEvalBroker, ReadEvalRequest, ReadEvalSource, RequestOrigin, install_read_eval_broker,
@@ -29,7 +29,7 @@ impl Default for ReplEvalOptions {
     fn default() -> Self {
         Self {
             requires: Vec::new(),
-            allow: CapabilitySet::new(),
+            allow: CapabilitySet::new().grant(macro_expand_eval_capability()),
             expected_shape: Arc::new(AnyShape),
         }
     }
@@ -154,7 +154,7 @@ fn broker(cx: &mut Cx) -> sim_kernel::Result<ReadEvalBroker> {
 #[cfg(test)]
 mod tests {
     use sim_codec_lisp::LispCodecLib;
-    use sim_kernel::{CapabilityName, Cx, Symbol};
+    use sim_kernel::{CapabilityName, Cx, Symbol, macro_expand_eval_capability};
     use sim_lib_core::{ReadEvalOutcome, read_eval_broker_symbol};
     use sim_lib_numbers_prelude::NumbersPreludeLib;
     use sim_shape::{ExprKind, ExprKindShape};
@@ -163,6 +163,7 @@ mod tests {
 
     fn boot() -> Cx {
         let mut cx = sim_test_support::core_cx();
+        cx.grant(macro_expand_eval_capability());
         NumbersPreludeLib::new().install_all(&mut cx).unwrap();
         let lisp = LispCodecLib::new(cx.registry_mut().fresh_codec_id()).unwrap();
         cx.load_lib(&lisp).unwrap();
@@ -199,6 +200,11 @@ mod tests {
             decision.origin.tag == Symbol::new("repl")
                 && decision.outcome == ReadEvalOutcome::Admitted
         }));
+        assert!(
+            decisions
+                .iter()
+                .any(|decision| { decision.active.contains(&macro_expand_eval_capability()) })
+        );
     }
 
     #[test]
