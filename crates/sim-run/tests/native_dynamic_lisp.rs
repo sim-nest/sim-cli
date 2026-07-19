@@ -235,7 +235,8 @@ fn native_lisp_codec_loads_from_git_registry_symbol() {
         .expect("dylib should live in target/<profile>")
         .to_owned();
     let plugin_bytes = std::fs::read(&plugin_path).expect("Lisp codec dylib should be readable");
-    let index = format!("0.1.0 {}\n", lisp_codec_dylib_file_name()).into_bytes();
+    let index =
+        registry_index_row("0.1.0", lisp_codec_dylib_file_name(), &plugin_bytes).into_bytes();
     let artifact_route = format!(
         "/packages/sim-codec-lisp/0.1.0/{}",
         lisp_codec_dylib_file_name()
@@ -314,6 +315,18 @@ fn unique_cache_dir(label: &str) -> PathBuf {
         .expect("system time should be after unix epoch")
         .as_nanos();
     std::env::temp_dir().join(format!("sim-run-cache-{label}-{nanos}"))
+}
+
+#[cfg(feature = "registry")]
+fn registry_index_row(version: &str, file_name: &str, bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+
+    let digest = Sha256::digest(bytes);
+    let mut hex = String::with_capacity(64);
+    for byte in digest {
+        hex.push_str(&format!("{byte:02x}"));
+    }
+    format!("{version} {file_name} {hex}")
 }
 
 fn lisp_codec_dylib_file_name() -> &'static str {

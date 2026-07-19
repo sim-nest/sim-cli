@@ -269,11 +269,16 @@ fn symbol_fallback_resolves_through_crates_io() {
 #[cfg(feature = "registry")]
 #[test]
 fn symbol_fallback_resolves_through_git_registry() {
+    let artifact_bytes = b"demo-lib";
     let server = FixtureServer::start([
-        ("/packages/sim-lib-demo/index.txt", b"0.1.0\n".to_vec()),
+        (
+            "/packages/sim-lib-demo/index.txt",
+            b"0.1.0 artifact.simlib ec682ff792893143d3e852837888a80a1844830f7bf3b7adf1f35928462ab90b\n"
+                .to_vec(),
+        ),
         (
             "/packages/sim-lib-demo/0.1.0/artifact.simlib",
-            b"demo-lib".to_vec(),
+            artifact_bytes.to_vec(),
         ),
     ]);
     let cache = temp_cache("symbol-git-registry");

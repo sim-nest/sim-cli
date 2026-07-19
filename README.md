@@ -67,9 +67,10 @@ checks a CLI-owned cache directory first: `SIM_CLI_CACHE_DIR` when set, then
 artifacts resolve to kernel `path:` sources. A local registry fixture can seed
 the cache for offline use. When built with `registry`, the binary can fetch a
 missing package artifact from the explicit `SIM_GIT_REGISTRY_ENDPOINT`
-git registry artifact endpoint and then store it in the same cache. When no explicit
-catalog source handles a symbol, `codec/lisp` maps to `sim-codec-lisp@^0.1`,
-and an unqualified symbol such as `demo` maps to `sim-lib-demo@^0.1`.
+git registry artifact endpoint, verify it against the index row's SHA-256
+digest, and store it under a hash-prefixed cache file. When no explicit catalog
+source handles a symbol, `codec/lisp` maps to `sim-codec-lisp@^0.1`, and an
+unqualified symbol such as `demo` maps to `sim-lib-demo@^0.1`.
 
 The `dynamic-native` and `wasm` features compose additional loader mechanisms
 into the thin binary. `dynamic-native` loads platform dynamic libraries from
