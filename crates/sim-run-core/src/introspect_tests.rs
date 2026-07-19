@@ -1,8 +1,8 @@
 use std::{fs, path::PathBuf, sync::Arc};
 
 use sim_kernel::{
-    AbiVersion, Callable, CatalogSource, Cx, Error, Export, Lib, LibLoader, LibManifest, LibTarget,
-    Linker, LoadCx, Object, ObjectCompat, Symbol, Value, Version,
+    AbiVersion, Callable, Cx, Error, Export, Lib, LibLoader, LibManifest, LibTarget, Linker,
+    LoadCx, Object, ObjectCompat, Symbol, Value, Version,
     library::{LibSource as KernelLibSource, LibTarget::HostRegistered},
     object::Args,
 };
@@ -164,7 +164,8 @@ struct ArtifactLoader;
 
 impl LibLoader for ArtifactLoader {
     fn can_load(&self, source: &KernelLibSource) -> bool {
-        matches!(source, KernelLibSource::Bytes(_) | KernelLibSource::Path(_))
+        sim_run_loaders::bytes_from_source(source).is_ok_and(|bytes| bytes.is_some())
+            || sim_run_loaders::path_from_source(source).is_ok_and(|path| path.is_some())
     }
 
     fn load(&self, _cx: &mut Cx, source: KernelLibSource) -> sim_kernel::Result<Box<dyn Lib>> {
@@ -217,7 +218,7 @@ fn list_output_includes_catalog_loaded_receipts_and_crates_artifacts() {
         });
     session.add_catalog_source(
         "catalog/demo",
-        CatalogSource::Bytes(b"catalog-lib".to_vec()),
+        sim_run_loaders::catalog_bytes_source(b"catalog-lib".to_vec()),
     );
 
     let output = session.run_loaded_introspection(&boot).unwrap();
@@ -335,7 +336,7 @@ fn inspect_source_handles_host_bytes_path_symbol_and_crates_sources() {
             });
         session.add_catalog_source(
             "catalog/demo",
-            CatalogSource::Bytes(b"catalog-lib".to_vec()),
+            sim_run_loaders::catalog_bytes_source(b"catalog-lib".to_vec()),
         );
         let boot = CliBoot {
             codec: Some("test".to_owned()),
@@ -456,23 +457,23 @@ fn artifact_manifest(bytes: &[u8]) -> sim_kernel::Result<LibManifest> {
 }
 
 fn artifact_bytes(source: KernelLibSource) -> sim_kernel::Result<Vec<u8>> {
-    match source {
-        KernelLibSource::Bytes(bytes) => Ok(bytes),
-        KernelLibSource::Path(path) => {
-            fs::read(path).map_err(|err| Error::Lib(format!("read artifact: {err}")))
-        }
-        _ => Err(Error::Lib("unsupported fixture source".to_owned())),
+    if let Some(bytes) = sim_run_loaders::bytes_from_source(&source)? {
+        return Ok(bytes);
     }
+    if let Some(path) = sim_run_loaders::path_from_source(&source)? {
+        return fs::read(path).map_err(|err| Error::Lib(format!("read artifact: {err}")));
+    }
+    Err(Error::Lib("unsupported fixture source".to_owned()))
 }
 
 fn artifact_bytes_ref(source: &KernelLibSource) -> sim_kernel::Result<Vec<u8>> {
-    match source {
-        KernelLibSource::Bytes(bytes) => Ok(bytes.clone()),
-        KernelLibSource::Path(path) => {
-            fs::read(path).map_err(|err| Error::Lib(format!("read artifact: {err}")))
-        }
-        _ => Err(Error::Lib("unsupported fixture source".to_owned())),
+    if let Some(bytes) = sim_run_loaders::bytes_from_source(source)? {
+        return Ok(bytes);
     }
+    if let Some(path) = sim_run_loaders::path_from_source(source)? {
+        return fs::read(path).map_err(|err| Error::Lib(format!("read artifact: {err}")));
+    }
+    Err(Error::Lib("unsupported fixture source".to_owned()))
 }
 
 fn temp_artifact(label: &str) -> PathBuf {

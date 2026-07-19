@@ -1,7 +1,7 @@
 use std::{ffi::OsString, fmt, path::PathBuf, str::FromStr};
 
 use crate::{CliError, CratesIoSpec};
-use sim_kernel::{LibSourceSpec as KernelLibSourceSpec, Symbol};
+use sim_kernel::{Datum, LibSourceSpec as KernelLibSourceSpec, Symbol};
 
 /// Library source syntax accepted by the command line.
 ///
@@ -28,6 +28,13 @@ pub enum LibSourceSpec {
     Url(String),
     /// A `bytes:TEXT` source holding inline library bytes.
     Bytes(Vec<u8>),
+    /// An open loader-defined source carried as opaque kernel data.
+    Open {
+        /// Loader-defined source kind.
+        kind: Symbol,
+        /// Opaque payload interpreted by the loader that claims `kind`.
+        payload: Datum,
+    },
     /// A `host:NAME` source provided by the host environment.
     Host(String),
     /// A `crates.io:NAME@REQ` source resolved outside the kernel.
@@ -38,9 +45,13 @@ impl LibSourceSpec {
     pub(crate) fn to_kernel_data_source(&self) -> Option<KernelLibSourceSpec> {
         match self {
             Self::Symbol(symbol) => Some(KernelLibSourceSpec::Symbol(symbol_from_text(symbol))),
-            Self::Path(path) => Some(KernelLibSourceSpec::Path(path.clone())),
-            Self::Url(url) => Some(KernelLibSourceSpec::Url(url.clone())),
-            Self::Bytes(bytes) => Some(KernelLibSourceSpec::Bytes(bytes.clone())),
+            Self::Path(path) => Some(sim_run_loaders::path_source_spec(path.clone())),
+            Self::Url(url) => Some(sim_run_loaders::url_source_spec(url.clone())),
+            Self::Bytes(bytes) => Some(sim_run_loaders::bytes_source_spec(bytes.clone())),
+            Self::Open { kind, payload } => Some(KernelLibSourceSpec::Open {
+                kind: kind.clone(),
+                payload: payload.clone(),
+            }),
             Self::Host(_) | Self::CratesIo(_) => None,
         }
     }
@@ -48,9 +59,28 @@ impl LibSourceSpec {
     pub(crate) fn from_kernel_data_source(source: KernelLibSourceSpec) -> Self {
         match source {
             KernelLibSourceSpec::Symbol(symbol) => Self::Symbol(symbol.to_string()),
-            KernelLibSourceSpec::Path(path) => Self::Path(path),
-            KernelLibSourceSpec::Url(url) => Self::Url(url),
-            KernelLibSourceSpec::Bytes(bytes) => Self::Bytes(bytes),
+            KernelLibSourceSpec::Open { kind, payload }
+                if kind == sim_run_loaders::path_source_kind() =>
+            {
+                sim_run_loaders::path_from_payload(&payload)
+                    .map(Self::Path)
+                    .unwrap_or(Self::Open { kind, payload })
+            }
+            KernelLibSourceSpec::Open { kind, payload }
+                if kind == sim_run_loaders::url_source_kind() =>
+            {
+                sim_run_loaders::url_from_payload(&payload)
+                    .map(Self::Url)
+                    .unwrap_or(Self::Open { kind, payload })
+            }
+            KernelLibSourceSpec::Open { kind, payload }
+                if kind == sim_run_loaders::bytes_source_kind() =>
+            {
+                sim_run_loaders::bytes_from_payload(&payload)
+                    .map(Self::Bytes)
+                    .unwrap_or(Self::Open { kind, payload })
+            }
+            KernelLibSourceSpec::Open { kind, payload } => Self::Open { kind, payload },
         }
     }
 }
@@ -84,6 +114,7 @@ impl fmt::Display for LibSourceSpec {
             Self::Path(path) => write!(f, "path:{}", path.display()),
             Self::Url(url) => write!(f, "url:{url}"),
             Self::Bytes(bytes) => write!(f, "bytes:{} bytes", bytes.len()),
+            Self::Open { kind, .. } => write!(f, "open:{kind}"),
             Self::Host(name) => write!(f, "host:{name}"),
             Self::CratesIo(spec) => write!(f, "crates.io:{spec}"),
         }

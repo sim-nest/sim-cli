@@ -10,8 +10,8 @@ use std::{
 
 use sim_codec::{Input, decode_with_codec, encode_with_codec};
 use sim_kernel::{
-    Cx, DefaultFactory, EncodeOptions, Expr, LibSource, LoaderRegistry, NoopEvalPolicy,
-    NumberLiteral, QuoteMode, ReadPolicy, Symbol, native_dynamic_load_capability,
+    Cx, DefaultFactory, EncodeOptions, Expr, LoaderRegistry, NoopEvalPolicy, NumberLiteral,
+    QuoteMode, ReadPolicy, Symbol, native_dynamic_load_capability,
 };
 
 use support::{
@@ -98,7 +98,7 @@ fn native_lisp_codec_loads_and_decodes_through_cli_loader() {
     cx.grant(native_dynamic_load_capability());
     LoaderRegistry::new()
         .with_loader(sim_run_loaders::NativeDylibLoader)
-        .load_and_register(&mut cx, LibSource::Path(plugin_path.clone()))
+        .load_and_register(&mut cx, sim_run_loaders::path_source(plugin_path.clone()))
         .expect("native loader should register codec/lisp");
 
     let codec = Symbol::qualified("codec", "lisp");
@@ -180,7 +180,7 @@ fn native_lisp_recipe_fixture_keeps_cli_entrypoint_envelope() {
     cx.grant(native_dynamic_load_capability());
     LoaderRegistry::new()
         .with_loader(sim_run_loaders::NativeDylibLoader)
-        .load_and_register(&mut cx, LibSource::Path(plugin_path))
+        .load_and_register(&mut cx, sim_run_loaders::path_source(plugin_path))
         .expect("native loader should register codec/lisp");
 
     let codec = Symbol::qualified("codec", "lisp");

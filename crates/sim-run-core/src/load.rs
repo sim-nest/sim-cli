@@ -396,7 +396,7 @@ impl LoadSession {
             LibSourceSpec::Host(name) => self.hosts.inspect_manifest(name, &self.config),
             LibSourceSpec::CratesIo(spec) => {
                 let resolved = self.crates_io.resolve(spec)?;
-                let data_source = KernelLibSourceSpec::Path(resolved.artifact);
+                let data_source = sim_run_loaders::path_source_spec(resolved.artifact);
                 ensure_loadable_path(&data_source, source)?;
                 self.inspect_data_source_manifest(data_source)
             }
@@ -487,7 +487,7 @@ impl LoadSession {
         role: LoadReceiptRole,
     ) -> Result<LoadReceipt, CliError> {
         let resolved = self.crates_io.resolve(spec)?;
-        let data_source = KernelLibSourceSpec::Path(resolved.artifact);
+        let data_source = sim_run_loaders::path_source_spec(resolved.artifact);
         ensure_loadable_path(&data_source, source)?;
         let receipt = self
             .loaders
@@ -540,9 +540,9 @@ impl LoadSession {
 
 fn catalog_source_spec(source: CatalogSource) -> LibSourceSpec {
     match source {
-        CatalogSource::Path(path) => LibSourceSpec::Path(path),
-        CatalogSource::Url(url) => LibSourceSpec::Url(url),
-        CatalogSource::Bytes(bytes) => LibSourceSpec::Bytes(bytes),
+        CatalogSource::Open { kind, payload } => {
+            LibSourceSpec::from_kernel_data_source(KernelLibSourceSpec::Open { kind, payload })
+        }
     }
 }
 
@@ -603,6 +603,7 @@ fn config_lib_for_source(source: &LibSourceSpec) -> Option<Symbol> {
         LibSourceSpec::Path(_)
         | LibSourceSpec::Url(_)
         | LibSourceSpec::Bytes(_)
+        | LibSourceSpec::Open { .. }
         | LibSourceSpec::CratesIo(_) => None,
     }
 }
@@ -623,7 +624,9 @@ fn ensure_loadable_path(
     data_source: &KernelLibSourceSpec,
     source: &LibSourceSpec,
 ) -> Result<(), CliError> {
-    if let KernelLibSourceSpec::Path(path) = data_source
+    if let KernelLibSourceSpec::Open { kind, payload } = data_source
+        && kind == &sim_run_loaders::path_source_kind()
+        && let Ok(path) = sim_run_loaders::path_from_payload(payload)
         && !path.exists()
     {
         return Err(CliError::new(format!(

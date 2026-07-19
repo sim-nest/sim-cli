@@ -1,8 +1,8 @@
 use std::{fs, path::PathBuf};
 
 use sim_kernel::{
-    AbiVersion, CatalogSource, Cx, Error as KernelError, Export, Lib, LibLoader, LibManifest,
-    LibTarget, Linker, LoadCx, Symbol, Version,
+    AbiVersion, Cx, Error as KernelError, Export, Lib, LibLoader, LibManifest, LibTarget, Linker,
+    LoadCx, Symbol, Version,
     library::{LibSource as KernelLibSource, LibTarget::HostRegistered},
 };
 
@@ -91,17 +91,12 @@ struct ArtifactLoader;
 
 impl LibLoader for ArtifactLoader {
     fn can_load(&self, source: &KernelLibSource) -> bool {
-        matches!(source, KernelLibSource::Bytes(_) | KernelLibSource::Path(_))
+        sim_run_loaders::bytes_from_source(source).is_ok_and(|bytes| bytes.is_some())
+            || sim_run_loaders::path_from_source(source).is_ok_and(|path| path.is_some())
     }
 
     fn load(&self, _cx: &mut Cx, source: KernelLibSource) -> sim_kernel::Result<Box<dyn Lib>> {
-        let bytes = match source {
-            KernelLibSource::Bytes(bytes) => bytes,
-            KernelLibSource::Path(path) => {
-                fs::read(path).map_err(|err| KernelError::Lib(format!("read artifact: {err}")))?
-            }
-            _ => return Err(KernelError::Lib("unsupported fixture source".to_owned())),
-        };
+        let bytes = artifact_bytes(source)?;
         artifact_lib(&bytes)
     }
 
@@ -110,15 +105,29 @@ impl LibLoader for ArtifactLoader {
         _cx: &mut Cx,
         source: &KernelLibSource,
     ) -> sim_kernel::Result<Option<LibManifest>> {
-        let bytes = match source {
-            KernelLibSource::Bytes(bytes) => bytes.clone(),
-            KernelLibSource::Path(path) => {
-                fs::read(path).map_err(|err| KernelError::Lib(format!("read artifact: {err}")))?
-            }
-            _ => return Ok(None),
-        };
+        let bytes = artifact_bytes_ref(source)?;
         Ok(Some(artifact_manifest(&bytes)?))
     }
+}
+
+fn artifact_bytes(source: KernelLibSource) -> sim_kernel::Result<Vec<u8>> {
+    if let Some(bytes) = sim_run_loaders::bytes_from_source(&source)? {
+        return Ok(bytes);
+    }
+    if let Some(path) = sim_run_loaders::path_from_source(&source)? {
+        return fs::read(path).map_err(|err| KernelError::Lib(format!("read artifact: {err}")));
+    }
+    Err(KernelError::Lib("unsupported fixture source".to_owned()))
+}
+
+fn artifact_bytes_ref(source: &KernelLibSource) -> sim_kernel::Result<Vec<u8>> {
+    if let Some(bytes) = sim_run_loaders::bytes_from_source(source)? {
+        return Ok(bytes);
+    }
+    if let Some(path) = sim_run_loaders::path_from_source(source)? {
+        return fs::read(path).map_err(|err| KernelError::Lib(format!("read artifact: {err}")));
+    }
+    Err(KernelError::Lib("unsupported fixture source".to_owned()))
 }
 
 fn artifact_lib(bytes: &[u8]) -> sim_kernel::Result<Box<dyn Lib>> {
@@ -297,7 +306,7 @@ fn explicit_host_codec_loads_before_other_sources() {
         .with_loader(ArtifactLoader)
         .with_catalog_source(
             "codec/test",
-            CatalogSource::Bytes(b"codec-catalog".to_vec()),
+            sim_run_loaders::catalog_bytes_source(b"codec-catalog".to_vec()),
         )
         .with_crates_io_resolver(resolver)
         .with_host_factory("codec/test", || {
@@ -376,7 +385,7 @@ fn catalog_source_precedes_crates_io_and_host_fallbacks() {
         .with_loader(ArtifactLoader)
         .with_catalog_source(
             "codec/lisp",
-            CatalogSource::Bytes(b"codec-catalog".to_vec()),
+            sim_run_loaders::catalog_bytes_source(b"codec-catalog".to_vec()),
         )
         .with_crates_io_resolver(resolver)
         .with_host_factory("codec/lisp", || {

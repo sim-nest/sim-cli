@@ -52,10 +52,9 @@ struct ArtifactLoader;
 
 impl LibLoader for ArtifactLoader {
     fn can_load(&self, source: &KernelLibSource) -> bool {
-        matches!(
-            source,
-            KernelLibSource::Bytes(_) | KernelLibSource::Path(_) | KernelLibSource::Url(_)
-        )
+        sim_run_loaders::bytes_from_source(source).is_ok_and(|bytes| bytes.is_some())
+            || sim_run_loaders::path_from_source(source).is_ok_and(|path| path.is_some())
+            || sim_run_loaders::url_from_source(source).is_ok_and(|url| url.is_some())
     }
 
     fn load(
@@ -63,17 +62,14 @@ impl LibLoader for ArtifactLoader {
         _cx: &mut sim_kernel::Cx,
         source: KernelLibSource,
     ) -> sim_kernel::Result<Box<dyn Lib>> {
-        let bytes = match source {
-            KernelLibSource::Bytes(bytes) => bytes,
-            KernelLibSource::Path(path) => {
-                fs::read(path).map_err(|err| KernelError::Lib(format!("read artifact: {err}")))?
-            }
-            KernelLibSource::Url(url) => {
-                return Err(KernelError::Lib(format!("url artifact unavailable: {url}")));
-            }
-            KernelLibSource::Symbol(_) | KernelLibSource::Host(_) => {
-                return Err(KernelError::Lib("unsupported fixture source".to_owned()));
-            }
+        let bytes = if let Some(bytes) = sim_run_loaders::bytes_from_source(&source)? {
+            bytes
+        } else if let Some(path) = sim_run_loaders::path_from_source(&source)? {
+            fs::read(path).map_err(|err| KernelError::Lib(format!("read artifact: {err}")))?
+        } else if let Some(url) = sim_run_loaders::url_from_source(&source)? {
+            return Err(KernelError::Lib(format!("url artifact unavailable: {url}")));
+        } else {
+            return Err(KernelError::Lib("unsupported fixture source".to_owned()));
         };
         match bytes.as_slice() {
             b"bytes-lib" => Ok(Box::new(FixtureLib::new(

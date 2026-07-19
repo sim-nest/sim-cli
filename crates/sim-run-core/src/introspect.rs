@@ -1,7 +1,4 @@
-use sim_kernel::{
-    Args, ExportKind, ExportRecord, ExportState, LibManifest, LibSourceSpec as KernelLibSourceSpec,
-    Symbol,
-};
+use sim_kernel::{Args, ExportKind, ExportRecord, ExportState, LibManifest, Symbol};
 
 use crate::{
     CliBoot, CliError, LibSourceSpec, LoadReceipt, LoadReceiptRole, LoadSession,
@@ -141,8 +138,9 @@ impl LoadSession {
             LibSourceSpec::CratesIo(spec) => {
                 let resolved = self.crates_io().resolve(spec)?;
                 let resolved_source = LibSourceSpec::Path(resolved.artifact.clone());
-                let manifest = self
-                    .inspect_data_source_manifest(KernelLibSourceSpec::Path(resolved.artifact))?;
+                let manifest = self.inspect_data_source_manifest(
+                    sim_run_loaders::path_source_spec(resolved.artifact),
+                )?;
                 Ok(format_manifest_source(source, &resolved_source, &manifest))
             }
             _ => {

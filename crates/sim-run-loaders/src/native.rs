@@ -7,6 +7,9 @@ use std::{
 
 use sim_kernel::{Cx, Lib, LibLoader, LibSource, Result, Symbol};
 
+#[cfg(all(feature = "dynamic-native", not(target_arch = "wasm32")))]
+use crate::path_from_source;
+
 /// Encodes a lib manifest as the native ABI manifest-call response.
 pub fn encode_native_manifest_response(
     manifest: &sim_kernel::LibManifest,
@@ -90,20 +93,17 @@ impl Drop for NativeAbiShared {
 #[cfg(all(feature = "dynamic-native", not(target_arch = "wasm32")))]
 impl LibLoader for NativeDylibLoader {
     fn can_load(&self, source: &LibSource) -> bool {
-        matches!(source, LibSource::Path(path) if is_native_library(path))
+        path_from_source(source).is_ok_and(|path| path.is_some_and(|path| is_native_library(&path)))
     }
 
     #[allow(unsafe_code)]
     fn load(&self, cx: &mut Cx, source: LibSource) -> Result<Box<dyn Lib>> {
         cx.require(&sim_kernel::native_dynamic_load_capability())?;
 
-        let path = match source {
-            LibSource::Path(path) => path,
-            _ => {
-                return Err(sim_kernel::Error::HostError(
-                    "native dylib loader received unsupported source".to_owned(),
-                ));
-            }
+        let Some(path) = path_from_source(&source)? else {
+            return Err(sim_kernel::Error::HostError(
+                "native dylib loader received unsupported source".to_owned(),
+            ));
         };
 
         let (library, abi) = open_native_abi(&path)?;
@@ -123,13 +123,15 @@ impl LibLoader for NativeDylibLoader {
     ) -> Result<Option<sim_kernel::LibManifest>> {
         cx.require(&sim_kernel::native_dynamic_load_capability())?;
 
-        let path = match source {
-            LibSource::Path(path) if is_native_library(path) => path,
-            _ => return Ok(None),
+        let Some(path) = path_from_source(source)? else {
+            return Ok(None);
         };
+        if !is_native_library(&path) {
+            return Ok(None);
+        }
 
-        let (library, abi) = open_native_abi(path)?;
-        let shared = instantiate_native_shared(library, abi, path)?;
+        let (library, abi) = open_native_abi(&path)?;
+        let shared = instantiate_native_shared(library, abi, &path)?;
         Ok(Some(load_native_manifest(&shared)?))
     }
 }

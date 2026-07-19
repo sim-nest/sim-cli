@@ -1,11 +1,17 @@
 {
-  "card_count": 2,
+  "card_count": 3,
   "cards": [
     {
       "id": "browse/catalog",
       "kind": "browse-root",
       "owner": "workspace",
       "summary": "root browse catalog"
+    },
+    {
+      "id": "cookbook/sim-run",
+      "kind": "cookbook-recipe",
+      "owner": "sim-run",
+      "summary": "SIM command-line bootloader recipes."
     },
     {
       "id": "registry/catalog",
@@ -244,6 +250,13 @@
           "package": "sim-view-tty",
           "rename": null,
           "target": null
+        },
+        {
+          "kind": "normal",
+          "optional": false,
+          "package": "sim-run-loaders",
+          "rename": null,
+          "target": null
         }
       ],
       "description": "Core command entry API for the SIM bootloader.",
@@ -390,10 +403,10 @@
     "generated_by": "cargo run -p xtask -- simdoc",
     "generation_timestamp": "2026-07-16T03:56:38+02:00",
     "generator": "xtask repo-contract v1",
-    "git_commit": "c797375977461a3dc9676c51f83ad90966325c1c",
+    "git_commit": "fa1e6e1e0692fc03fa32a195c955ab489a69142e",
     "repo": "sim-run",
     "schema": "sim.provenance.v1",
-    "source_commit": "c797375977461a3dc9676c51f83ad90966325c1c",
+    "source_commit": "fa1e6e1e0692fc03fa32a195c955ab489a69142e",
     "source_remote": "https://github.com/sim-nest/sim-run",
     "validation_commands": [
       "cargo fmt --all --check",
@@ -406,9 +419,9 @@
       "cargo run -p xtask -- validation-matrix --check --repo .",
       "cargo run -p xtask -- crate-catalog --check --repo ."
     ],
-    "workspace_hash": "a7fe849cd063576e",
+    "workspace_hash": "ed64f0ef75b26580",
     "workspace_hash_algorithm": "fnv1a64",
-    "workspace_hash_input_count": 77,
+    "workspace_hash_input_count": 78,
     "workspace_hash_inputs": [
       "Cargo.toml",
       "crates/sim-lib-repl/Cargo.toml",
@@ -464,6 +477,7 @@
       "crates/sim-run-loaders/src/native_site.rs",
       "crates/sim-run-loaders/src/shape.rs",
       "crates/sim-run-loaders/src/shared.rs",
+      "crates/sim-run-loaders/src/source.rs",
       "crates/sim-run-loaders/src/wasm.rs",
       "crates/sim-view-tty/Cargo.toml",
       "crates/sim-view-tty/src/caps.rs",
@@ -489,6 +503,123 @@
       "xtask/Cargo.toml"
     ]
   },
-  "recipe_book_count": 0,
-  "recipes": []
+  "recipe_book_count": 1,
+  "recipes": [
+    {
+      "book": "sim-run",
+      "book_toml": "recipes/book.toml",
+      "card_id": "cookbook/sim-run",
+      "group": "workspace",
+      "package": "sim-run",
+      "recipe_count": 13,
+      "recipes": [
+        {
+          "card_id": "sim-run/01-basics/version",
+          "codec": "shell",
+          "id": "version",
+          "package": "sim-run",
+          "recipe_toml": "recipes/01-basics/version/recipe.toml",
+          "title": "Version"
+        },
+        {
+          "card_id": "sim-run/02-scenarios/boot-lisp-eval",
+          "codec": "shell",
+          "id": "boot-lisp-eval",
+          "package": "sim-run",
+          "recipe_toml": "recipes/02-scenarios/boot-lisp-eval/recipe.toml",
+          "title": "Boot Lisp and carry eval"
+        },
+        {
+          "card_id": "sim-run/02-scenarios/bytes-lib",
+          "codec": "shell",
+          "id": "bytes-lib",
+          "package": "sim-run",
+          "recipe_toml": "recipes/02-scenarios/bytes-lib/recipe.toml",
+          "title": "Bytes library verb"
+        },
+        {
+          "card_id": "sim-run/02-scenarios/config-cookbook-override",
+          "codec": "shell",
+          "id": "config-cookbook-override",
+          "package": "sim-run",
+          "recipe_toml": "recipes/02-scenarios/config-cookbook-override/recipe.toml",
+          "title": "Cookbook config override"
+        },
+        {
+          "card_id": "sim-run/02-scenarios/config-effective",
+          "codec": "shell",
+          "id": "config-effective",
+          "package": "sim-run",
+          "recipe_toml": "recipes/02-scenarios/config-effective/recipe.toml",
+          "title": "Config effective report"
+        },
+        {
+          "card_id": "sim-run/02-scenarios/config-status",
+          "codec": "shell",
+          "id": "config-status",
+          "package": "sim-run",
+          "recipe_toml": "recipes/02-scenarios/config-status/recipe.toml",
+          "title": "Config status report"
+        },
+        {
+          "card_id": "sim-run/02-scenarios/fake-crates-io",
+          "codec": "shell",
+          "id": "fake-crates-io",
+          "package": "sim-run",
+          "recipe_toml": "recipes/02-scenarios/fake-crates-io/recipe.toml",
+          "title": "Fake crates.io load"
+        },
+        {
+          "card_id": "sim-run/02-scenarios/host-verb",
+          "codec": "shell",
+          "id": "host-verb",
+          "package": "sim-run",
+          "recipe_toml": "recipes/02-scenarios/host-verb/recipe.toml",
+          "title": "Host library verb"
+        },
+        {
+          "card_id": "sim-run/02-scenarios/inspect-manifest",
+          "codec": "shell",
+          "id": "inspect-manifest",
+          "package": "sim-run",
+          "recipe_toml": "recipes/02-scenarios/inspect-manifest/recipe.toml",
+          "title": "Inspect manifest"
+        },
+        {
+          "card_id": "sim-run/02-scenarios/loadable-site",
+          "codec": "shell",
+          "id": "loadable-site",
+          "package": "sim-run",
+          "recipe_toml": "recipes/02-scenarios/loadable-site/recipe.toml",
+          "title": "Loadable site placement"
+        },
+        {
+          "card_id": "sim-run/02-scenarios/placement-report",
+          "codec": "shell",
+          "id": "placement-report",
+          "package": "sim-run",
+          "recipe_toml": "recipes/02-scenarios/placement-report/recipe.toml",
+          "title": "Placement report inspect"
+        },
+        {
+          "card_id": "sim-run/02-scenarios/server-verb",
+          "codec": "shell",
+          "id": "server-verb",
+          "package": "sim-run",
+          "recipe_toml": "recipes/02-scenarios/server-verb/recipe.toml",
+          "title": "Server verb from loaded library"
+        },
+        {
+          "card_id": "sim-run/publish-readiness/package-list",
+          "codec": "shell",
+          "id": "package-list",
+          "package": "sim-run",
+          "recipe_toml": "recipes/publish-readiness/package-list/recipe.toml",
+          "title": "Package list dry run"
+        }
+      ],
+      "summary": "SIM command-line bootloader recipes.",
+      "title": "sim-run"
+    }
+  ]
 }

@@ -1,9 +1,9 @@
 use std::{ffi::OsString, path::PathBuf, sync::Arc};
 
 use sim_kernel::{
-    AbiVersion, Callable, CatalogSource, Cx, Error, Export, Lib, LibLoader, LibManifest, LibTarget,
-    Linker, LoadCx, Object, ObjectCompat, Symbol, Value, Version,
-    library::LibSource as KernelLibSource, object::Args,
+    AbiVersion, Callable, Cx, Error, Export, Lib, LibLoader, LibManifest, LibTarget, Linker,
+    LoadCx, Object, ObjectCompat, Symbol, Value, Version, library::LibSource as KernelLibSource,
+    object::Args,
 };
 
 use crate::{
@@ -122,11 +122,11 @@ struct VerbCatalogLoader;
 
 impl LibLoader for VerbCatalogLoader {
     fn can_load(&self, source: &KernelLibSource) -> bool {
-        matches!(source, KernelLibSource::Bytes(_))
+        sim_run_loaders::bytes_from_source(source).is_ok_and(|bytes| bytes.is_some())
     }
 
     fn load(&self, _cx: &mut Cx, source: KernelLibSource) -> sim_kernel::Result<Box<dyn Lib>> {
-        let KernelLibSource::Bytes(bytes) = source else {
+        let Some(bytes) = sim_run_loaders::bytes_from_source(&source)? else {
             return Err(Error::Lib("verb catalog loader needs bytes".to_owned()));
         };
         let payload = String::from_utf8(bytes)
@@ -507,7 +507,10 @@ fn target_verbs_dispatch_from_symbol_loaded_libs_without_baked_cli() {
         let mut session = LoadSession::new()
             .with_host_factory("codec/test", || Box::new(FixtureLib::codec("test", None)))
             .with_loader(VerbCatalogLoader)
-            .with_catalog_source(verb, CatalogSource::Bytes(verb.as_bytes().to_vec()));
+            .with_catalog_source(
+                verb,
+                sim_run_loaders::catalog_bytes_source(verb.as_bytes().to_vec()),
+            );
 
         let code = session.run_loaded_boot(&boot).unwrap();
 
@@ -586,7 +589,10 @@ fn documented_command_equivalents_preserve_mode_payloads() {
         let mut session = LoadSession::new()
             .with_host_factory("codec/test", || Box::new(FixtureLib::codec("test", None)))
             .with_loader(VerbCatalogLoader)
-            .with_catalog_source(*verb, CatalogSource::Bytes(catalog_bytes(verb, args)));
+            .with_catalog_source(
+                *verb,
+                sim_run_loaders::catalog_bytes_source(catalog_bytes(verb, args)),
+            );
 
         let code = session.run_loaded_boot(&boot).unwrap();
 

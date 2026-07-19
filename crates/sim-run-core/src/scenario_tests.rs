@@ -1,9 +1,9 @@
 use std::{ffi::OsString, fs, path::PathBuf, sync::Arc};
 
 use sim_kernel::{
-    AbiVersion, Callable, CatalogSource, Cx, Error, Export, Lib, LibLoader, LibManifest, LibTarget,
-    Linker, LoadCx, Object, ObjectCompat, Symbol, Value, Version,
-    library::LibSource as KernelLibSource, object::Args,
+    AbiVersion, Callable, Cx, Error, Export, Lib, LibLoader, LibManifest, LibTarget, Linker,
+    LoadCx, Object, ObjectCompat, Symbol, Value, Version, library::LibSource as KernelLibSource,
+    object::Args,
 };
 
 use crate::{
@@ -178,7 +178,8 @@ struct ScenarioArtifactLoader;
 
 impl LibLoader for ScenarioArtifactLoader {
     fn can_load(&self, source: &KernelLibSource) -> bool {
-        matches!(source, KernelLibSource::Bytes(_) | KernelLibSource::Path(_))
+        sim_run_loaders::bytes_from_source(source).is_ok_and(|bytes| bytes.is_some())
+            || sim_run_loaders::path_from_source(source).is_ok_and(|path| path.is_some())
     }
 
     fn load(&self, _cx: &mut Cx, source: KernelLibSource) -> sim_kernel::Result<Box<dyn Lib>> {
@@ -357,8 +358,10 @@ fn scenario_server_verb_loads_from_catalog_without_baked_mode() {
         },
         ..CliBoot::default()
     };
-    let mut session = scenario_session()
-        .with_catalog_source("server", CatalogSource::Bytes(b"server-command".to_vec()));
+    let mut session = scenario_session().with_catalog_source(
+        "server",
+        sim_run_loaders::catalog_bytes_source(b"server-command".to_vec()),
+    );
 
     let code = session.run_loaded_boot(&boot).unwrap();
 
@@ -553,23 +556,23 @@ fn artifact_manifest(bytes: &[u8]) -> sim_kernel::Result<LibManifest> {
 }
 
 fn artifact_bytes(source: KernelLibSource) -> sim_kernel::Result<Vec<u8>> {
-    match source {
-        KernelLibSource::Bytes(bytes) => Ok(bytes),
-        KernelLibSource::Path(path) => {
-            fs::read(path).map_err(|err| Error::Lib(format!("read artifact: {err}")))
-        }
-        _ => Err(Error::Lib("unsupported scenario source".to_owned())),
+    if let Some(bytes) = sim_run_loaders::bytes_from_source(&source)? {
+        return Ok(bytes);
     }
+    if let Some(path) = sim_run_loaders::path_from_source(&source)? {
+        return fs::read(path).map_err(|err| Error::Lib(format!("read artifact: {err}")));
+    }
+    Err(Error::Lib("unsupported scenario source".to_owned()))
 }
 
 fn artifact_bytes_ref(source: &KernelLibSource) -> sim_kernel::Result<Vec<u8>> {
-    match source {
-        KernelLibSource::Bytes(bytes) => Ok(bytes.clone()),
-        KernelLibSource::Path(path) => {
-            fs::read(path).map_err(|err| Error::Lib(format!("read artifact: {err}")))
-        }
-        _ => Err(Error::Lib("unsupported scenario source".to_owned())),
+    if let Some(bytes) = sim_run_loaders::bytes_from_source(source)? {
+        return Ok(bytes);
     }
+    if let Some(path) = sim_run_loaders::path_from_source(source)? {
+        return fs::read(path).map_err(|err| Error::Lib(format!("read artifact: {err}")));
+    }
+    Err(Error::Lib("unsupported scenario source".to_owned()))
 }
 
 fn table_value(cx: &mut Cx, table: &Value, field: &str) -> sim_kernel::Result<Value> {

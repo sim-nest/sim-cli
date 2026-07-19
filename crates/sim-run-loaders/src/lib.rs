@@ -26,6 +26,7 @@ mod native_site;
 mod shape;
 #[cfg(all(feature = "dynamic-native", not(target_arch = "wasm32")))]
 mod shared;
+mod source;
 #[cfg(any(feature = "wasm", test))]
 mod wasm;
 
@@ -35,5 +36,14 @@ pub use native::{
 };
 #[cfg(all(feature = "dynamic-native", not(target_arch = "wasm32")))]
 pub use native_macro::NativeAbiMacro;
+pub use source::{
+    BYTES_SOURCE_KIND, CONTENT_ADDRESS_SOURCE_KIND, PATH_SOURCE_KIND, URL_SOURCE_KIND,
+    bytes_from_payload, bytes_from_source, bytes_source, bytes_source_kind, bytes_source_spec,
+    catalog_bytes_source, catalog_content_address_source, catalog_path_source, catalog_url_source,
+    content_address_payload, content_address_source, content_address_source_kind,
+    content_address_source_spec, is_bytes_source, is_path_source, is_url_source, path_from_payload,
+    path_from_source, path_payload, path_source, path_source_kind, path_source_spec,
+    url_from_payload, url_from_source, url_source, url_source_kind, url_source_spec,
+};
 #[cfg(any(feature = "wasm", test))]
 pub use wasm::{WasmLoader, wasm_load_capability};
