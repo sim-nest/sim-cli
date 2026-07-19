@@ -87,6 +87,20 @@
     {
       "features": [
         {
+          "edges": [
+            "dep:sim-codec-binary"
+          ],
+          "name": "codec-binary",
+          "workspace_edges": []
+        },
+        {
+          "edges": [
+            "dep:sim-codec"
+          ],
+          "name": "codec-lisp",
+          "workspace_edges": []
+        },
+        {
           "edges": [],
           "name": "default",
           "workspace_edges": []
@@ -95,9 +109,16 @@
           "edges": [
             "dep:libloading",
             "dep:sim-codec",
-            "dep:sim-codec-binary"
+            "codec-binary"
           ],
           "name": "dynamic-native",
+          "workspace_edges": []
+        },
+        {
+          "edges": [
+            "dep:sim-shape"
+          ],
+          "name": "shape",
           "workspace_edges": []
         },
         {

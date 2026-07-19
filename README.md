@@ -24,6 +24,8 @@ the exact command grammar is under
 
 - `sim-run` provides the `sim` binary.
 - `sim-run-core` provides the command entry API used by the binary.
+- `sim-run-loaders` provides source-kind helpers, source and binary lib loaders,
+  and optional native/wasm loader mechanisms.
 - `sim-lib-repl` provides the loadable `cli/main/repl` entry point and the
   read-eval-print core used by that entry point.
 - `sim-view-tty` is a loadable terminal (CLI/TUI) view/edit surface: it projects

@@ -15,7 +15,7 @@ sim-config = { version = "0.1.1" }
 sim-kernel = { version = "0.1.4" }
 sim-lib-net-core = { version = "0.1.4" }
 sim-lib-stream-host = { version = "0.1.2" }
-sim-run-loaders = { version = "0.1.3", path = "../sim-run-loaders", default-features = false }
+sim-run-loaders = { version = "0.1.4", path = "../sim-run-loaders", default-features = false }
 sha2 = { version = "0.10", optional = true }
 
 [features]
