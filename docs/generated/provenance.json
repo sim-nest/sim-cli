@@ -3,10 +3,10 @@
   "generated_by": "cargo run -p xtask -- simdoc",
   "generation_timestamp": "2026-07-16T03:56:38+02:00",
   "generator": "xtask repo-contract v1",
-  "git_commit": "043d584296ca362bbac4ec5cb7051481313da3e7",
+  "git_commit": "adfc74080ad743e6e88c9284bbdcec12f7b9b54d",
   "repo": "sim-run",
   "schema": "sim.provenance.v1",
-  "source_commit": "043d584296ca362bbac4ec5cb7051481313da3e7",
+  "source_commit": "adfc74080ad743e6e88c9284bbdcec12f7b9b54d",
   "source_remote": "https://github.com/sim-nest/sim-run",
   "validation_commands": [
     "cargo fmt --all --check",
@@ -19,9 +19,9 @@
     "cargo run -p xtask -- validation-matrix --check --repo .",
     "cargo run -p xtask -- crate-catalog --check --repo ."
   ],
-  "workspace_hash": "78048a76cd2c26df",
+  "workspace_hash": "d8517c4b0fb5124b",
   "workspace_hash_algorithm": "fnv1a64",
-  "workspace_hash_input_count": 93,
+  "workspace_hash_input_count": 95,
   "workspace_hash_inputs": [
     "Cargo.toml",
     "crates/sim-lib-repl/Cargo.toml",
@@ -56,6 +56,8 @@
     "crates/sim-run-core/src/crates_io.rs",
     "crates/sim-run-core/src/device_host.rs",
     "crates/sim-run-core/src/device_host_tests.rs",
+    "crates/sim-run-core/src/device_options.rs",
+    "crates/sim-run-core/src/device_options_tests.rs",
     "crates/sim-run-core/src/envelope.rs",
     "crates/sim-run-core/src/exit.rs",
     "crates/sim-run-core/src/git_registry.rs",

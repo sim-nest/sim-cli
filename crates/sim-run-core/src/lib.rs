@@ -35,6 +35,7 @@ mod codec_boot;
 mod config;
 mod crates_io;
 mod device_host;
+pub mod device_options;
 mod envelope;
 mod exit;
 #[cfg(feature = "registry")]
