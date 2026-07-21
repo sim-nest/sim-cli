@@ -12,7 +12,6 @@
           "edges": [
             "dep:sim-run-loaders",
             "sim-run-loaders/dynamic-native",
-            "dep:sim-kernel",
             "dep:sim-lib-repl"
           ],
           "name": "dynamic-native",
@@ -47,7 +46,6 @@
           "edges": [
             "dep:sim-run-loaders",
             "sim-run-loaders/wasm",
-            "dep:sim-kernel",
             "dep:sim-wasm-abi"
           ],
           "name": "wasm",
