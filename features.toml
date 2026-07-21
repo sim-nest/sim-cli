@@ -7,7 +7,7 @@ framework = "advisory"
 
 [enforcement.surface]
 cli = "strict"
-view = "advisory"
+view = "strict"
 syntax = "advisory"
 wire = "advisory"
 site = "advisory"
@@ -165,9 +165,6 @@ audiences = ["code", "framework"]
 guidance = "Use this row when following how a runtime library provides table-backed index rows."
 claims_anchors = [
   "anchor/rustdoc/sim-lib-index/index-dir",
-]
-claims_specimens = [
-  "recipe/sim-run/02-scenarios/index-examples",
 ]
 supports = [
   "feature/sim-run/runtime-index",
