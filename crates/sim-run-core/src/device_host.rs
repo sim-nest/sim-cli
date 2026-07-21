@@ -76,7 +76,7 @@ pub struct DeviceSite {
     pub symbol: Symbol,
     /// Device profile carried by this site export.
     pub profile: DeviceProfile,
-    /// Surface codec used to encode device samples and commands.
+    /// Surface codec for device samples and commands.
     pub surface_codec_id: Symbol,
     /// Locality used by placement validation.
     pub locality: DeviceSiteLocality,
@@ -289,6 +289,8 @@ impl RouteArg {
 pub enum DeviceHostStalePolicy {
     /// Keep the last accepted sample or rendered frame visible.
     HoldLast,
+    /// Predict briefly from the last accepted sample, then clamp to the last frame.
+    PredictClamp,
     /// Replace stale output with a blank sample or surface frame.
     Blank,
     /// Refuse stale output until the provider yields a fresh sample.
@@ -307,7 +309,7 @@ pub enum DeviceConsentPolicy {
     },
 }
 
-/// Coarse rate class used to pace the device adapter loop.
+/// Coarse rate class for pacing the device adapter loop.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DeviceRateClass {
     /// Low-rate sensor stream with no local controls or surface output.

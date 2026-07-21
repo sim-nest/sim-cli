@@ -14,6 +14,9 @@
 
 use std::process;
 
+mod glasses;
+mod glasses_args;
+mod glasses_plan;
 #[cfg(any(feature = "dynamic-native", feature = "wasm"))]
 mod loader_boot;
 mod watch;
@@ -31,6 +34,7 @@ fn main() {
 fn boot() -> Result<i32, sim_run_core::CliError> {
     let command = sim_run_core::parse_args(std::env::args_os())?;
     let mut session = watch::with_watch_if_selected(&command, sim_run_core::LoadSession::new());
+    session = glasses::with_glasses_if_selected(&command, session);
     sim_run_core::run_command_with_session(command, &mut session)
 }
 
