@@ -132,7 +132,7 @@ supports = [
 [[feature]]
 id = "feature/sim-run/runtime-index"
 title = "Runtime index exploration"
-summary = "Explore the merged SIM Index through the bootloader as stable tables and structured query output."
+summary = "Explore the merged SIM Index through the bootloader as stable Table/Dir rows and structured query output."
 owner = "crate/sim-lib-index"
 audiences = ["user", "code"]
 guidance = "Use this row when searching, tracing, or listing index facts from the sim command."
@@ -154,6 +154,23 @@ claims_specimens = [
 supports = [
   "feature/sim-run/bootloader",
   "feature/sim-run/index",
+]
+
+[[feature]]
+id = "feature/sim-run/index-table-dir"
+title = "Index Table/Dir backend"
+summary = "Expose the embedded SIM Index as immutable Table/Dir collections for loaded runtime code."
+owner = "crate/sim-lib-index"
+audiences = ["code", "framework"]
+guidance = "Use this row when following how a runtime library provides table-backed index rows."
+claims_anchors = [
+  "anchor/rustdoc/sim-lib-index/index-dir",
+]
+claims_specimens = [
+  "recipe/sim-run/02-scenarios/index-examples",
+]
+supports = [
+  "feature/sim-run/runtime-index",
 ]
 
 [[feature]]
@@ -197,4 +214,23 @@ steps = [
   { feature = "feature/sim-run/index", why = "The index row owns the generated fragment." },
   { feature = "feature/sim-run/runtime-index", why = "The runtime command reads the merged index." },
   { specimen = "recipe/sim-run/publish-readiness/package-list", why = "The recipe exercises package metadata." },
+]
+
+[[route]]
+id = "route/find-code-behind-command"
+task = "Find code behind a command"
+audiences = ["code"]
+steps = [
+  { feature = "feature/sim-run/bootloader", why = "The bootloader owns command dispatch into loaded libraries." },
+  { feature = "feature/sim-run/runtime-index", why = "The index trace command resolves command surfaces to owning crates and anchors." },
+  { specimen = "recipe/sim-run/02-scenarios/index-trace-cli", why = "The checked trace recipe follows a CLI surface back to code facts." },
+]
+
+[[route]]
+id = "route/add-table-dir-backend"
+task = "Add a Table/Dir backend"
+audiences = ["code", "framework"]
+steps = [
+  { feature = "feature/sim-run/index-table-dir", why = "The IndexDir implementation shows a runtime table exposed as an immutable directory." },
+  { specimen = "recipe/sim-run/02-scenarios/index-examples", why = "The examples recipe exercises table-backed feature-to-specimen lookup." },
 ]

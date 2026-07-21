@@ -68,7 +68,7 @@ or nil is `1`.
 
 `sim index` is a host-registered runtime library. It decodes the embedded public
 SIM Index snapshot through `codec/index`, exports it as an immutable `index/dir`
-Table/Dir value, and provides `list`, `show`, `find`, `trace`, and `examples`
+Table/Dir value, and provides `list`, `show`, `find`, `route`, `trace`, and `examples`
 queries for human and agent use.
 
 `crates.io:` resolution belongs to `sim-run-core`, not the kernel. The resolver

@@ -4,7 +4,8 @@ use serde_json::{Value as JsonValue, json};
 use sim_index_core::{DiscoveredSpecimen, IndexDoc, RouteStep};
 
 use crate::{
-    Collection, Hit, IndexCommand, IndexError, OutputMode, Query, Trace, examples, find, trace,
+    Collection, Hit, IndexCommand, IndexError, OutputMode, Query, RouteMatch, RouteStepMatch,
+    Trace, examples, find, route, trace,
 };
 
 /// Renders `command` over `doc`.
@@ -14,6 +15,7 @@ pub fn render_command(command: &IndexCommand, doc: &IndexDoc) -> Result<String, 
         IndexCommand::List { collection, output } => render_list(doc, *collection, *output),
         IndexCommand::Show { id, output } => render_show(doc, id, *output),
         IndexCommand::Find { query, output } => render_find(doc, query, *output),
+        IndexCommand::Route { task, output } => render_route(doc, task, *output),
         IndexCommand::Trace { id, output } => render_trace(doc, id, *output),
         IndexCommand::Examples { feature, output } => render_examples(doc, feature, *output),
     }
@@ -26,6 +28,7 @@ Verbs:
   list [subjects|anchors|surfaces|specimens|features|routes|edges|all] [--json]
   show <id> [--json]
   find <term...> [--audience X] [--surface-kind X] [--language X] [--json]
+  route <task...> [--json]
   trace <id> [--json]
   examples <feature-id> [--json]
 ";
@@ -126,6 +129,33 @@ fn render_trace(doc: &IndexDoc, id: &str, output: OutputMode) -> Result<String, 
     }
     for (rel, from) in &trace.incoming {
         out.push_str(&format!("incoming\t{rel}\t{from}\n"));
+    }
+    Ok(out)
+}
+
+fn render_route(doc: &IndexDoc, task: &str, output: OutputMode) -> Result<String, IndexError> {
+    let rows = route(doc, task);
+    if output == OutputMode::Json {
+        return pretty_json(&json!({
+            "task": task,
+            "match_count": rows.len(),
+            "routes": routes_json(&rows)
+        }));
+    }
+    let mut out = String::new();
+    for row in rows {
+        out.push_str(&format!(
+            "{}\t{}\t{}\n",
+            row.id,
+            row.title,
+            row.audiences.join(",")
+        ));
+        for step in row.steps {
+            out.push_str(&format!("  {}\t{}\t{}\n", step.kind, step.id, step.title));
+            if !step.why.is_empty() {
+                out.push_str(&format!("    {}\n", step.why));
+            }
+        }
     }
     Ok(out)
 }
@@ -293,6 +323,7 @@ fn collection_rows(doc: &IndexDoc, collection: Collection) -> JsonValue {
                     json!({
                         "id": row.id.to_string(),
                         "title": row.title,
+                        "audiences": row.audiences,
                         "steps": route_steps_json(&row.steps)
                     })
                 })
@@ -332,7 +363,7 @@ fn show_row(doc: &IndexDoc, id: &str) -> Option<JsonValue> {
         })
     }).or_else(|| {
         doc.routes.iter().find(|row| row.id.as_str() == id).map(|row| {
-            json!({"kind": "route", "id": row.id.to_string(), "title": row.title, "steps": route_steps_json(&row.steps)})
+            json!({"kind": "route", "id": row.id.to_string(), "title": row.title, "audiences": row.audiences, "steps": route_steps_json(&row.steps)})
         })
     }).or_else(|| {
         doc.anchors.iter().find(|row| row.id.as_str() == id).map(|row| {
@@ -391,11 +422,47 @@ fn specimens_json(rows: &[DiscoveredSpecimen]) -> JsonValue {
     )
 }
 
+fn routes_json(rows: &[RouteMatch]) -> JsonValue {
+    json!(
+        rows.iter()
+            .map(|row| {
+                json!({
+                    "route": row.id,
+                    "title": row.title,
+                    "audiences": row.audiences,
+                    "score": row.score,
+                    "steps": route_match_steps_json(&row.steps)
+                })
+            })
+            .collect::<Vec<_>>()
+    )
+}
+
+fn route_match_steps_json(rows: &[RouteStepMatch]) -> Vec<JsonValue> {
+    rows.iter()
+        .map(|row| {
+            json!({
+                "kind": row.kind,
+                "id": row.id,
+                "title": row.title,
+                "why": row.why,
+                "path": row.path,
+                "runnable": row.runnable,
+                "checked": row.checked,
+                "checked_by": row.checked_by
+            })
+        })
+        .collect()
+}
+
 fn route_steps_json(rows: &[RouteStep]) -> Vec<JsonValue> {
     rows.iter()
-        .map(|row| match row {
-            RouteStep::Feature(id) => json!({"kind": "feature", "id": id.to_string()}),
-            RouteStep::Specimen(id) => json!({"kind": "specimen", "id": id.to_string()}),
+        .map(|row| {
+            json!({
+                "kind": row.kind(),
+                "id": row.id(),
+                "why": row.why()
+            })
         })
         .collect()
 }

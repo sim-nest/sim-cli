@@ -22,7 +22,8 @@ This generated lane consumes `docs/generated/sim-index-fragment.sx`. Global inde
 | `feature/sim-run/watch` | `crate/sim-run` | 0 | Start modeled, imported, or live watch plans through the shared command bootloader. |
 | `feature/sim-run/glasses` | `crate/sim-run` | 0 | Start modeled or hardware-backed glasses plans through the shared command bootloader. |
 | `feature/sim-run/repl` | `crate/sim-lib-repl` | 1 | Run a SIM read-eval-print loop through the loaded REPL library and command surface. |
-| `feature/sim-run/runtime-index` | `crate/sim-lib-index` | 4 | Explore the merged SIM Index through the bootloader as stable tables and structured query output. |
+| `feature/sim-run/runtime-index` | `crate/sim-lib-index` | 4 | Explore the merged SIM Index through the bootloader as stable Table/Dir rows and structured query output. |
+| `feature/sim-run/index-table-dir` | `crate/sim-lib-index` | 1 | Expose the embedded SIM Index as immutable Table/Dir collections for loaded runtime code. |
 | `feature/sim-run/terminal-surface` | `crate/sim-view-tty` | 1 | Render and interpret terminal view intents through the loaded TTY surface library. |
 
 ## Surfaces
@@ -222,6 +223,24 @@ tags = ["cli", "index", "language", "offline", "deterministic"]
 requires = ["sim-run", "sim-lib-index"]
 network = false
 ```
+
+Specimen `recipe/sim-run/02-scenarios/index-examples` is checked by `xtask check-recipes`.
+
+Source `recipes/02-scenarios/index-examples/recipe.toml`:
+
+```toml
+id = "index-examples"
+title = "Index Feature Examples"
+codec = "shell"
+setup = "setup.sh"
+purpose = "purpose.md"
+order = 73
+tags = ["cli", "index", "examples", "offline", "deterministic"]
+requires = ["sim-run", "sim-lib-index"]
+network = false
+```
+
+### `feature/sim-run/index-table-dir`
 
 Specimen `recipe/sim-run/02-scenarios/index-examples` is checked by `xtask check-recipes`.
 

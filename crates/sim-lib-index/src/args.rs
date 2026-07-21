@@ -105,6 +105,13 @@ pub enum IndexCommand {
         /// Output encoding.
         output: OutputMode,
     },
+    /// Find best-use routes for a task.
+    Route {
+        /// Task text to route.
+        task: String,
+        /// Output encoding.
+        output: OutputMode,
+    },
 }
 
 /// Parses a `sim index` payload argument list.
@@ -117,6 +124,7 @@ pub fn parse_index_args(args: &[String]) -> Result<IndexCommand, IndexError> {
         "list" => parse_list(&args[1..]),
         "show" => parse_show(&args[1..]),
         "find" => parse_find(&args[1..]),
+        "route" => parse_route(&args[1..]),
         "trace" => parse_trace(&args[1..]),
         "examples" => parse_examples(&args[1..]),
         other => Err(IndexError::new(format!("unknown index verb: {other}"))),
@@ -159,6 +167,27 @@ fn parse_trace(args: &[String]) -> Result<IndexCommand, IndexError> {
 fn parse_examples(args: &[String]) -> Result<IndexCommand, IndexError> {
     let (feature, output) = parse_id_and_output("examples", args)?;
     Ok(IndexCommand::Examples { feature, output })
+}
+
+fn parse_route(args: &[String]) -> Result<IndexCommand, IndexError> {
+    let mut output = OutputMode::Text;
+    let mut task = Vec::new();
+    for arg in args {
+        match arg.as_str() {
+            "--json" => output = OutputMode::Json,
+            value if value.starts_with('-') => {
+                return Err(IndexError::new(format!("unknown route option: {value}")));
+            }
+            value => task.push(value.to_owned()),
+        }
+    }
+    if task.is_empty() {
+        return Err(IndexError::new("route requires task text"));
+    }
+    Ok(IndexCommand::Route {
+        task: task.join(" "),
+        output,
+    })
 }
 
 fn parse_id_and_output(verb: &str, args: &[String]) -> Result<(String, OutputMode), IndexError> {
@@ -243,6 +272,26 @@ mod tests {
         };
         assert_eq!(query.terms, ["codec"]);
         assert_eq!(query.audience.as_deref(), Some("code"));
+        assert_eq!(output, OutputMode::Json);
+    }
+
+    #[test]
+    fn parses_route_task_with_json_flag() {
+        let args = vec![
+            "index".to_owned(),
+            "route".to_owned(),
+            "write".to_owned(),
+            "a".to_owned(),
+            "parser".to_owned(),
+            "--json".to_owned(),
+        ];
+
+        let command = parse_index_args(&args).unwrap();
+
+        let IndexCommand::Route { task, output } = command else {
+            panic!("expected route");
+        };
+        assert_eq!(task, "write a parser");
         assert_eq!(output, OutputMode::Json);
     }
 }

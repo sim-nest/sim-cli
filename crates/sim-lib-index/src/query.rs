@@ -179,9 +179,15 @@ pub fn find(doc: &IndexDoc, query: &Query) -> Vec<Hit> {
 
     for route in &doc.routes {
         let mut text = format!("{} {}", route.id.as_str(), route.title);
+        for audience in &route.audiences {
+            text.push(' ');
+            text.push_str(audience);
+        }
         for step in &route.steps {
             text.push(' ');
-            text.push_str(&format!("{step:?}"));
+            text.push_str(step.id());
+            text.push(' ');
+            text.push_str(step.why());
         }
         if terms_match(&text, &terms) {
             hits.push(Hit {
