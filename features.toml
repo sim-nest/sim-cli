@@ -1,5 +1,29 @@
 schema = "sim.features"
 
+[enforcement.audience]
+user = "strict"
+code = "advisory"
+framework = "advisory"
+
+[enforcement.surface]
+cli = "strict"
+view = "advisory"
+syntax = "advisory"
+wire = "advisory"
+site = "advisory"
+docs = "advisory"
+
+[enforcement.specimen]
+user = "advisory"
+framework = "advisory"
+
+[enforcement.route]
+major_entrypoints = "advisory"
+frameworks = "advisory"
+
+[enforcement.overlap]
+default = "advisory"
+
 [[feature]]
 id = "feature/sim-run/index"
 title = "Repository index contract"
@@ -43,6 +67,46 @@ claims_specimens = [
 ]
 
 [[feature]]
+id = "feature/sim-run/watch"
+title = "Watch command surface"
+summary = "Start modeled, imported, or live watch plans through the shared command bootloader."
+owner = "crate/sim-run"
+audiences = ["user", "code"]
+guidance = "Use this row when checking the watch command entry point."
+claims_anchors = [
+  "anchor/cli/watch",
+  "anchor/export/sim-run/cli/main/watch",
+  "anchor/runtime-lib/sim-run/watch-boot-codec",
+  "anchor/runtime-lib/sim-run/watch-lib",
+]
+claims_surfaces = [
+  "cli/watch",
+]
+supports = [
+  "feature/sim-run/bootloader",
+]
+
+[[feature]]
+id = "feature/sim-run/glasses"
+title = "Glasses command surface"
+summary = "Start modeled or hardware-backed glasses plans through the shared command bootloader."
+owner = "crate/sim-run"
+audiences = ["user", "code"]
+guidance = "Use this row when checking the glasses command entry point."
+claims_anchors = [
+  "anchor/cli/glasses",
+  "anchor/export/sim-run/cli/main/glasses",
+  "anchor/runtime-lib/sim-run/glasses-boot-codec",
+  "anchor/runtime-lib/sim-run/glasses-lib",
+]
+claims_surfaces = [
+  "cli/glasses",
+]
+supports = [
+  "feature/sim-run/bootloader",
+]
+
+[[feature]]
 id = "feature/sim-run/repl"
 title = "Interactive REPL"
 summary = "Run a SIM read-eval-print loop through the loaded REPL library and command surface."
@@ -57,9 +121,6 @@ claims_anchors = [
 ]
 claims_surfaces = [
   "cli/repl",
-]
-claims_specimens = [
-  "recipe/sim-run/01-basics/version",
 ]
 supports = [
   "feature/sim-run/bootloader",

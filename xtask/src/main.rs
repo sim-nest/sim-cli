@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod file_sizes;
+mod index_check;
 mod recipe_check;
 mod simdoc;
 
@@ -18,8 +19,9 @@ fn run(args: Vec<String>) -> Result<(), String> {
         Some("simdoc") => simdoc::run(args),
         Some("check-file-sizes") => file_sizes::run(&args),
         Some("check-recipes") => recipe_check::run(&args),
+        Some("index-check") => index_check::run(&args),
         _ => Err(format!(
-            "usage: {program} <simdoc [--check]|check-file-sizes|check-recipes>"
+            "usage: {program} <simdoc [--check]|check-file-sizes|check-recipes|index-check --repo <path> [--strict <category:value,...>]>"
         )),
     }
 }
