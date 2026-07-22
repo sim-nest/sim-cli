@@ -259,6 +259,36 @@ steps = [
 ]
 
 [[route]]
+id = "route/start-a-watch-plan"
+task = "Start a watch plan"
+audiences = ["user", "code"]
+steps = [
+  { feature = "feature/sim-run/bootloader", why = "The bootloader prepares the command runtime." },
+  { feature = "feature/sim-run/watch", why = "The watch row owns the watch command surface and loaded watch libraries." },
+  { specimen = "spec-test/sim-run/crates/sim-run/tests/watch", why = "The checked command test exercises the watch entry point." },
+]
+
+[[route]]
+id = "route/start-a-glasses-plan"
+task = "Start a glasses plan"
+audiences = ["user", "code"]
+steps = [
+  { feature = "feature/sim-run/bootloader", why = "The bootloader prepares the command runtime." },
+  { feature = "feature/sim-run/glasses", why = "The glasses row owns the glasses command surface and loaded glasses libraries." },
+  { specimen = "spec-test/sim-run/crates/sim-run/tests/glasses", why = "The checked command test exercises the glasses entry point." },
+]
+
+[[route]]
+id = "route/load-runtime-surface"
+task = "Load a runtime surface"
+audiences = ["code", "framework"]
+steps = [
+  { feature = "feature/sim-run/loaders", why = "The loader row owns native, source, and re-exported runtime library discovery." },
+  { feature = "feature/sim-run/terminal-surface", why = "The terminal surface row shows a loadable view surface provided by a runtime library." },
+  { specimen = "recipe/sim-run/02-scenarios/host-verb", why = "The checked host-verb recipe exercises the terminal surface path." },
+]
+
+[[route]]
 id = "route/add-table-dir-backend"
 task = "Add a Table/Dir backend"
 audiences = ["code", "framework"]
