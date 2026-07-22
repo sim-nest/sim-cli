@@ -23,6 +23,7 @@ This generated lane consumes `docs/generated/sim-index-fragment.sx`. Global inde
 | `feature/sim-run/glasses` | `crate/sim-run` | 0 | Start modeled or hardware-backed glasses plans through the shared command bootloader. |
 | `feature/sim-run/repl` | `crate/sim-lib-repl` | 1 | Run a SIM read-eval-print loop through the loaded REPL library and command surface. |
 | `feature/sim-run/runtime-index` | `crate/sim-lib-index` | 4 | Explore the merged SIM Index through the bootloader as stable Table/Dir rows and structured query output. |
+| `feature/sim-run/loaders` | `crate/sim-run-loaders` | 0 | Load native, source, and re-exported runtime libraries as bootloader inputs. |
 | `feature/sim-run/index-table-dir` | `crate/sim-lib-index` | 0 | Expose the embedded SIM Index as immutable Table/Dir collections for loaded runtime code. |
 | `feature/sim-run/terminal-surface` | `crate/sim-view-tty` | 1 | Render and interpret terminal view intents through the loaded TTY surface library. |
 

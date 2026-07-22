@@ -2,7 +2,7 @@ schema = "sim.features"
 
 [enforcement.audience]
 user = "strict"
-code = "advisory"
+code = "strict"
 framework = "advisory"
 
 [enforcement.surface]
@@ -33,6 +33,7 @@ audiences = ["code"]
 guidance = "Use this row when checking which generated index facts the repo exports."
 claims_anchors = [
   "anchor/cli/xtask",
+  "anchor/crate/xtask",
   "anchor/doc/generated/feature-map",
   "anchor/doc/generated/sim-index-fragment",
 ]
@@ -53,7 +54,10 @@ audiences = ["user", "code"]
 guidance = "Use this row when following how command verbs enter the runtime."
 claims_anchors = [
   "anchor/cli/sim-run",
+  "anchor/crate/sim-run",
   "anchor/crate/sim-run-core",
+  "anchor/export/sim-run-core/codec/lisp",
+  "anchor/export/sim-run/codec/lisp",
   "anchor/rustdoc/sim-run-core/bootloader",
   "anchor/rustdoc/sim-run-core/run_with_session",
 ]
@@ -141,6 +145,7 @@ claims_anchors = [
   "anchor/crate/sim-lib-index",
   "anchor/export/sim-lib-index/cli/main/index",
   "anchor/runtime-lib/sim-lib-index/index-lib",
+  "anchor/runtime-lib/sim-run/index-boot-codec",
 ]
 claims_surfaces = [
   "cli/index",
@@ -154,6 +159,23 @@ claims_specimens = [
 supports = [
   "feature/sim-run/bootloader",
   "feature/sim-run/index",
+]
+
+[[feature]]
+id = "feature/sim-run/loaders"
+title = "Loadable source libraries"
+summary = "Load native, source, and re-exported runtime libraries as bootloader inputs."
+owner = "crate/sim-run-loaders"
+audiences = ["code", "framework"]
+guidance = "Use this row when following how runtime libraries are discovered before command dispatch."
+claims_anchors = [
+  "anchor/crate/sim-run-loaders",
+  "anchor/runtime-lib/sim-run-loaders/loaded-native-lib",
+  "anchor/runtime-lib/sim-run-loaders/reexport-lib",
+  "anchor/runtime-lib/sim-run-loaders/source-lib",
+]
+supports = [
+  "feature/sim-run/bootloader",
 ]
 
 [[feature]]
